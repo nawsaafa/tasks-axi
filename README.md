@@ -150,7 +150,7 @@ It is written only through `continuation set` / `continuation clear`, and it is 
 It is not a dependency edge: `blocked-by` / `parent` / `discovered-from` keep their existing meaning and are never repurposed for it.
 
 The relation is deliberately inert. It does not create the child row, change `ready` / `blocked` / `held`, assert current work, mark an endpoint or an archive owner, complete the owner when the child completes, or grant any authority.
-`continuation set` requires the named child to already exist and to be live; an existing relation stays valid and stays inert once that child goes Done, and `continuation show` reports the child's current state so nothing has to be guessed.
+`continuation set` requires the named child to already exist and to be live; a `kind=public-followup` obligation is refused on both ends, as neither owner nor child; an existing relation stays valid and stays inert once that child goes Done, and `continuation show` reports the child's current state so nothing has to be guessed.
 
 A child resolves to at most one owner per backlog, and a row owns at most one child.
 Only the canonical single-token trailing `(continuation: <child-id>)` shape is the managed tag - a trailing multi-word parenthetical such as `(continuation: see the phase-2 notes)` stays ordinary prose and round-trips byte-exact.
