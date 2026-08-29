@@ -42,6 +42,11 @@ import {
   pruneCommand,
   renderCommand,
 } from "./commands/maintain.js";
+import {
+  CONTINUATION_HELP,
+  continuationCommand,
+  continuationSubcommandHelp,
+} from "./commands/continuation.js";
 import { homeCommand } from "./commands/home.js";
 import {
   PUBLIC_FOLLOWUP_HELP,
@@ -63,8 +68,8 @@ type MainOptions = {
 };
 
 export const TOP_HELP = `usage: tasks-axi [command] [args] [flags]
-commands[19]:
-  (none)=dashboard, add, list, show, start, done, reopen, update, rm, block, unblock, hold, unhold, ready, public-followup, mv, prune, render, setup
+commands[20]:
+  (none)=dashboard, add, list, show, start, done, reopen, update, rm, block, unblock, hold, unhold, ready, continuation, public-followup, mv, prune, render, setup
 flags[4]:
   --backend <name> (after command), --file <path> (after command), --json (mutations: machine-readable result), --help, -v/-V/--version
 examples:
@@ -76,6 +81,7 @@ examples:
   tasks-axi block fm-x --by treehouse-lease-t4
   tasks-axi hold fm-x --reason "captain decision pending" --kind captain
   tasks-axi ready
+  tasks-axi continuation set widget-rollout-h7 --child widget-rollout-phase2-k3
   tasks-axi public-followup ready --json
   tasks-axi setup hooks
 `;
@@ -102,6 +108,7 @@ const COMMANDS: Record<string, CommandFn> = {
   hold: withContext(holdCommand),
   unhold: withContext(unholdCommand),
   ready: withContext(readyCommand),
+  continuation: withContext(continuationCommand),
   "public-followup": withContext(publicFollowupCommand),
   mv: withContext(mvCommand),
   prune: withContext(pruneCommand),
@@ -128,6 +135,7 @@ const COMMAND_HELP: Record<string, string> = {
   hold: HOLD_HELP,
   unhold: UNHOLD_HELP,
   ready: READY_HELP,
+  continuation: CONTINUATION_HELP,
   "public-followup": PUBLIC_FOLLOWUP_HELP,
   mv: MV_HELP,
   prune: PRUNE_HELP,
@@ -139,8 +147,13 @@ export async function main(options: MainOptions = {}): Promise<void> {
   const argv = options.argv ?? process.argv.slice(2);
   // The noun `task` is optional: `tasks-axi task add ...` === `tasks-axi add ...`.
   const normalized = argv[0] === "task" ? argv.slice(1) : argv;
-  if (normalized[0] === "public-followup" && normalized[2] === "--help") {
-    const help = publicFollowupSubcommandHelp(normalized[1]);
+  if (normalized[2] === "--help") {
+    const help =
+      normalized[0] === "public-followup"
+        ? publicFollowupSubcommandHelp(normalized[1])
+        : normalized[0] === "continuation"
+          ? continuationSubcommandHelp(normalized[1])
+          : undefined;
     if (help !== undefined) {
       (options.stdout ?? process.stdout).write(help);
       return;

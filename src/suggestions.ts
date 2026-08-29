@@ -171,6 +171,35 @@ const table: Entry[] = [
     lines: () => ["Run `tasks-axi list` to see remaining tasks"],
   },
   {
+    match: (c) => c.action === "continuation-set",
+    lines: (c) => [
+      `Run \`tasks-axi continuation show ${c.id}\` to see the recorded relation`,
+      `Run \`tasks-axi continuation clear ${c.id}\` to release it`,
+    ],
+  },
+  {
+    match: (c) => c.action === "continuation-clear",
+    lines: (c) => [
+      `Run \`tasks-axi continuation set ${c.id} --child <child-id>\` to record a new relation`,
+    ],
+  },
+  {
+    match: (c) => c.action === "continuation-show",
+    lines: () => ["Run `tasks-axi continuation list` to see every relation"],
+  },
+  {
+    match: (c) => c.action === "continuation-list" && c.isEmpty === true,
+    lines: () => [
+      "Run `tasks-axi continuation set <owner-id> --child <child-id>` to record a relation",
+    ],
+  },
+  {
+    match: (c) => c.action === "continuation-list",
+    lines: () => [
+      "Run `tasks-axi continuation show <owner-id>` for one relation",
+    ],
+  },
+  {
     match: (c) => c.action === "render",
     lines: () => ["Run `tasks-axi list` to see the normalized backlog"],
   },

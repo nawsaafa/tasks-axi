@@ -1540,4 +1540,124 @@ describe("MarkdownStore", () => {
       }
     });
   });
+
+  describe("typed continuation ownership", () => {
+    const HOME = [
+      "# Backlog",
+      "",
+      "## In flight",
+      "- [ ] owner-h1 - own the rollout (repo: widget)",
+      "",
+      "## Queued",
+      "- [ ] child-k3 - the continuation child (repo: widget)",
+      "",
+      "## Done",
+      "",
+    ].join("\n");
+
+    it("accepts the relation on create and reads it back", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        const task = await b.store.create({
+          id: "second-h2",
+          title: "another owner",
+          continuation: { child: "child-k3" },
+        });
+        expect(task.continuation).toEqual({ child: "child-k3" });
+        expect((await b.store.get("second-h2"))?.continuation).toEqual({
+          child: "child-k3",
+        });
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("sets and clears the relation through update, reporting the change", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        const set = await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        expect(set.changed).toContain("continuation");
+        expect(b.read()).toContain("(continuation: child-k3)");
+
+        const repeat = await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        expect(repeat.changed).toEqual([]);
+
+        const cleared = await b.store.update("owner-h1", {
+          continuation: null,
+        });
+        expect(cleared.changed).toContain("continuation");
+        expect(cleared.task.continuation).toBeUndefined();
+        expect(b.read()).not.toContain("(continuation:");
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("refuses a self-named or malformed relation on write", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        await expect(
+          b.store.update("owner-h1", { continuation: { child: "owner-h1" } }),
+        ).rejects.toThrow(/cannot name itself/);
+        await expect(
+          b.store.update("owner-h1", { continuation: { child: "not an id" } }),
+        ).rejects.toThrow(/malformed continuation child/);
+        expect(b.read()).toBe(HOME);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("refuses to write a post-state whose relation dangles", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        await expect(
+          b.store.update("owner-h1", { continuation: { child: "ghost-k9" } }),
+        ).rejects.toThrow(/does not exist in this backlog/);
+        expect(b.read()).toBe(HOME);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("leaves blocked/ready derivation untouched", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        const before = readyTasks((await b.store.list({})).items).map(
+          (t) => t.id,
+        );
+        await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        const after = readyTasks((await b.store.list({})).items).map(
+          (t) => t.id,
+        );
+        expect(after).toEqual(before);
+        expect((await b.store.get("owner-h1"))?.deps).toEqual([]);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("refuses to remove a claimed child", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        await expect(b.store.remove("child-k3")).rejects.toThrow(
+          /is the continuation child of owner-h1/,
+        );
+        // The owner itself is free to go: nothing points at it.
+        await b.store.remove("owner-h1");
+        expect(b.read()).not.toContain("(continuation:");
+      } finally {
+        b.cleanup();
+      }
+    });
+  });
 });

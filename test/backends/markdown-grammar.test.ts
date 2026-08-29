@@ -627,6 +627,119 @@ describe("markdown grammar", () => {
     });
   });
 
+  describe("typed continuation ownership", () => {
+    const owned =
+      "# Backlog\n\n## In flight\n- [ ] owner-h1 - own the rollout (repo: widget) (continuation: child-k3)\n\n## Queued\n- [ ] child-k3 - the continuation child\n";
+
+    it("parses the tag into the typed relation and strips it from the prose", () => {
+      const tasks = tasksOf(parseBacklog(owned));
+      const owner = tasks.find((t) => t.id === "owner-h1")!;
+      expect(owner.title).toBe("own the rollout");
+      expect(owner.continuation).toEqual({ child: "child-k3" });
+      // It is not a dependency edge and carries no link.
+      expect(owner.deps).toEqual([]);
+      expect(owner.links).toEqual([]);
+      expect(
+        tasks.find((t) => t.id === "child-k3")!.continuation,
+      ).toBeUndefined();
+    });
+
+    it("round-trips byte-exact and re-renders canonically", () => {
+      expect(renderBacklog(parseBacklog(owned))).toBe(owned);
+      // Re-rendering every row keeps the tag exactly once (the dropped trailing
+      // blank separator is the grammar's pre-existing canonical normalization).
+      const doc = parseBacklog(owned);
+      markAllDirty(doc);
+      const normalized = renderBacklog(doc);
+      expect(normalized).toContain("(continuation: child-k3)");
+      expect(normalized.match(/\(continuation:/g)).toHaveLength(1);
+      const again = parseBacklog(normalized);
+      markAllDirty(again);
+      expect(renderBacklog(again)).toBe(normalized);
+    });
+
+    it("renders after the hold tags and before a reasoned dependency edge", () => {
+      const task: Task = {
+        id: "owner-h1",
+        title: "own the rollout",
+        state: "queued",
+        links: [],
+        deps: [{ type: "blocked-by", id: "blocker-b2", reason: "waits on it" }],
+        hold: { reason: "captain decision pending", kind: "captain" },
+        continuation: { child: "child-k3" },
+        repo: "widget",
+      };
+      expect(buildProse(task)).toBe(
+        "own the rollout (repo: widget) (hold: captain decision pending) (hold-kind: captain) (continuation: child-k3) blocked-by: blocker-b2 - waits on it",
+      );
+      // Re-parsing the canonical line recovers every field unchanged.
+      const reparsed = tasksOf(
+        parseBacklog(
+          `# Backlog\n\n## Queued\n- [ ] owner-h1 - ${buildProse(task)}\n`,
+        ),
+      )[0];
+      expect(reparsed.continuation).toEqual({ child: "child-k3" });
+      expect(reparsed.hold).toEqual({
+        reason: "captain decision pending",
+        kind: "captain",
+      });
+      expect(reparsed.deps).toEqual([
+        { type: "blocked-by", id: "blocker-b2", reason: "waits on it" },
+      ]);
+      expect(reparsed.title).toBe("own the rollout");
+    });
+
+    it("never infers a relation from prose, links, branches, or body notes", () => {
+      const src = [
+        "# Backlog",
+        "",
+        "## In flight",
+        "- [ ] owner-h1 - continuation of child-k3 on branch feat/child-k3 https://github.com/o/r/pull/9",
+        "  The continuation work continues in child-k3; see the report.",
+        "  continuation: child-k3",
+        "- [ ] near-miss-h2 - work (continuation: child-k3) still going",
+        "",
+        "## Queued",
+        "- [ ] child-k3 - the child",
+        "",
+      ].join("\n");
+      const tasks = tasksOf(parseBacklog(src));
+      for (const task of tasks) {
+        expect(task.continuation).toBeUndefined();
+      }
+      // A mid-sentence parenthetical stays in the prose, untouched.
+      expect(tasks.find((t) => t.id === "near-miss-h2")!.title).toBe(
+        "work (continuation: child-k3) still going",
+      );
+      expect(renderBacklog(parseBacklog(src))).toBe(src);
+    });
+
+    it("refuses a malformed, valueless, self-named, or duplicated relation", () => {
+      const bad = (rest: string): string =>
+        `# Backlog\n\n## Queued\n- [ ] owner-h1 - ${rest}\n`;
+      expect(() => parseBacklog(bad("work (continuation: not an id)"))).toThrow(
+        /malformed continuation child/,
+      );
+      expect(() => parseBacklog(bad("work (continuation:)"))).toThrow(
+        /no child id/,
+      );
+      expect(() => parseBacklog(bad("work (continuation: owner-h1)"))).toThrow(
+        /cannot name itself/,
+      );
+      expect(() =>
+        parseBacklog(bad("work (continuation: a-k1) (continuation: b-k2)")),
+      ).toThrow(/declares 2 continuation relations/);
+    });
+
+    it("refuses a public-followup row that carries the tag", () => {
+      expect(() =>
+        parseBacklog(
+          "# Backlog\n\n## Queued\n- [ ] pf-ab - promise (kind: public-followup) (continuation: child-k3)\n",
+        ),
+      ).toThrow(/cannot own a continuation relation/);
+    });
+  });
+
   describe("leadingKind", () => {
     it("maps the firstmate leading words", () => {
       expect(leadingKind("SHIP a thing")).toBe("ship");

@@ -103,6 +103,12 @@ tasks-axi unhold firstmate-lease-adopt
 tasks-axi ready
 tasks-axi ready --include-held
 
+# typed continuation ownership (not a dependency edge, not a readiness signal)
+tasks-axi continuation set widget-rollout-h7 --child widget-rollout-phase2-k3
+tasks-axi continuation show widget-rollout-h7
+tasks-axi continuation list
+tasks-axi continuation clear widget-rollout-h7
+
 # edit the body and title: inspect current notes, then replace the body or title deliberately
 tasks-axi show nm-release-validation --full
 tasks-axi update nm-release-validation --body "rewritten notes"
@@ -136,6 +142,19 @@ Pass `--json` to any mutation for a machine-readable result object (`{ "ok": tru
 For `mv`, a single task returns `id`, while a multi-task move returns first-occurrence-ordered, deduplicated `ids`, plus `from` and `to`.
 
 Run `tasks-axi --help` for the command list, or `tasks-axi <command> --help` for per-command usage.
+
+## Typed continuation ownership
+
+`tasks-axi continuation` records exactly one fact: a canonical backlog row explicitly holds ownership of one differently identified live continuation child row in the same backlog.
+It is written only through `continuation set` / `continuation clear`, and it is never inferred from prose, status notes, owner reports, branch names, substring matches, links, or public-followup data.
+It is not a dependency edge: `blocked-by` / `parent` / `discovered-from` keep their existing meaning and are never repurposed for it.
+
+The relation is deliberately inert. It does not create the child row, change `ready` / `blocked` / `held`, assert current work, mark an endpoint or an archive owner, complete the owner when the child completes, or grant any authority.
+`continuation set` requires the named child to already exist and to be live; an existing relation stays valid and stays inert once that child goes Done, and `continuation show` reports the child's current state so nothing has to be guessed.
+
+A child resolves to at most one owner per backlog, and a row owns at most one child.
+Every fault is fail-visible rather than silently tolerated: a malformed, valueless, duplicated, or self-named relation is refused when the row is read, and a dangling or conflicting relation is reported by `continuation list` (and by `list --fields continuation,continuation_child_state,continuation_fault`) while every write is refused until it is repaired with a single `continuation clear`.
+`rm`, `mv`, and `prune` will not strand or archive a claimed child out from under its owner; move the owner and child together, or clear the relation first.
 
 ## Durable public follow-ups
 
@@ -215,6 +234,7 @@ It gently formalizes the inline tags a backlog already uses as the canonical fie
 - `(kind: X)` - task kind, when not already implied by a leading `SHIP` / `SCOUT` / `DOCS-ONLY` / `PERSISTENT SECONDMATE` word
 - `(priority: 0-4)` - optional priority, also accepted through `add` / `update --priority`
 - `(hold: <reason>)`, `(hold-kind: captain|external|load|parked|future)`, `(hold-until: YYYY-MM-DD)` - structured dispatch holds written by `hold`
+- `(continuation: <child-id>)` - typed continuation ownership written by `continuation set`; at most one per row, renders after the hold tags
 - PR urls, `data/<id>/report.md` paths, and other `http(s)` urls - typed links
 
 `tasks-axi render` rewrites every id'd task into this canonical form; free-form lines are left untouched.
@@ -226,6 +246,7 @@ Map them to structured holds by preserving the original prose as the reason and 
 Do not bulk-rewrite live backlogs just to chase these tags; migrate only when touching the task or when a hold migration specifically targets them.
 `add --blocked-by` and `block --by` require the referenced task to exist, and `rm` refuses to remove a task that still blocks active work.
 Single-task `mv` has the same protection; use multi-task `mv` to move its active dependents with it.
+`rm`, `mv`, and `prune` apply the same protection to a claimed continuation child, so the relation is never silently stranded, reassigned, or archived away.
 
 ## Configuration
 

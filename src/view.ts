@@ -1,4 +1,8 @@
 import { truncate } from "./body.js";
+import {
+  continuationChildState,
+  continuationFaultFor,
+} from "./continuation.js";
 import { activeBlockers, isHoldActive } from "./derive.js";
 import type { Task } from "./model.js";
 import { field, renderDetail, renderList, type FieldDef } from "./toon.js";
@@ -42,6 +46,13 @@ export function toRow(task: Task, opts: RowOptions): Record<string, unknown> {
     hold_reason: task.hold?.reason ?? "-",
     hold_kind: task.hold?.kind ?? "-",
     hold_until: task.hold?.until ?? "-",
+    // Typed continuation ownership, reported and never acted on: the child's
+    // state and any home fault are visible, but neither feeds any derivation.
+    continuation: task.continuation?.child ?? "-",
+    continuation_child_state: continuationChildState(task, opts.all) ?? "-",
+    continuation_fault: task.continuation
+      ? (continuationFaultFor(task, opts.all) ?? "none")
+      : "-",
     kind: task.kind ?? "task",
     repo: task.public_followup ? "-" : (task.repo ?? "-"),
     priority: task.priority ?? "-",
@@ -79,6 +90,9 @@ export const LIST_EXTRA_FIELDS: Record<string, FieldDef> = {
   body: field("body"),
   created: field("created"),
   closed: field("closed"),
+  continuation: field("continuation"),
+  continuation_child_state: field("continuation_child_state"),
+  continuation_fault: field("continuation_fault"),
   delivery_state: field("delivery_state"),
   deps: field("deps"),
   held: field("held"),
@@ -104,6 +118,7 @@ const DETAIL_SCHEMA: FieldDef[] = [
   field("priority"),
   field("created"),
   field("closed"),
+  field("continuation"),
   field("deps"),
   field("links"),
   field("body"),

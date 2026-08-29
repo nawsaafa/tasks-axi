@@ -1,5 +1,14 @@
+import { CONTINUATION_TAG, resolveContinuationTags } from "../continuation.js";
 import { AxiError } from "../errors.js";
-import type { Dep, Hold, HoldKind, State, Task, TaskLink } from "../model.js";
+import type {
+  Continuation,
+  Dep,
+  Hold,
+  HoldKind,
+  State,
+  Task,
+  TaskLink,
+} from "../model.js";
 import { HOLD_KINDS } from "../model.js";
 import { isPrUrl } from "../pr-url.js";
 import {
@@ -125,6 +134,11 @@ const TAIL_HOLD_KIND = new RegExp(
   `\\s*\\(hold-kind:\\s*(${HOLD_KINDS.join("|")})\\)\\s*$`,
 );
 const TAIL_HOLD_UNTIL = new RegExp(`\\s*\\(hold-until:\\s*(${DATE})\\)\\s*$`);
+// Captured permissively (including an empty value) so a malformed or valueless
+// relation surfaces as a fail-visible error instead of sliding back into prose.
+const TAIL_CONTINUATION = new RegExp(
+  `\\s*\\(${CONTINUATION_TAG}:([^()]*)\\)\\s*$`,
+);
 
 const REPORT_LINK = /\bdata\/\S+?\/report\.md\b/g;
 const GENERIC_URL = /https?:\/\/\S+/g;
@@ -181,6 +195,12 @@ export interface ExtractedTags {
   closed?: string;
   priority?: number;
   hold?: Hold;
+  /**
+   * Raw `(continuation: …)` tag values in document order. Kept raw and
+   * unvalidated here so `buildTask` can refuse a duplicate relation by count;
+   * `resolveContinuationTags` owns the meaning.
+   */
+  continuations: string[];
   links: TaskLink[];
 }
 
@@ -200,6 +220,7 @@ export function extractTags(rest: string): ExtractedTags {
   let holdReason: string | undefined;
   let holdKind: HoldKind | undefined;
   let holdUntil: string | undefined;
+  const continuations: string[] = [];
 
   let title = rest;
   let stripping = true;
@@ -271,6 +292,13 @@ export function extractTags(rest: string): ExtractedTags {
       stripping = true;
       continue;
     }
+    m = title.match(TAIL_CONTINUATION);
+    if (m) {
+      continuations.unshift(m[1].trim());
+      title = title.slice(0, m.index);
+      stripping = true;
+      continue;
+    }
   }
 
   title = title.trim();
@@ -285,7 +313,18 @@ export function extractTags(rest: string): ExtractedTags {
         }
       : undefined;
 
-  return { title, kind, repo, deps, created, closed, priority, hold, links };
+  return {
+    title,
+    kind,
+    repo,
+    deps,
+    created,
+    closed,
+    priority,
+    hold,
+    continuations,
+    links,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +361,9 @@ export function buildProse(task: Task): string {
     parts.push(`(hold: ${task.hold.reason})`);
     if (task.hold.kind) parts.push(`(hold-kind: ${task.hold.kind})`);
     if (task.hold.until) parts.push(`(hold-until: ${task.hold.until})`);
+  }
+  if (task.continuation) {
+    parts.push(`(${CONTINUATION_TAG}: ${task.continuation.child})`);
   }
   // A reason runs as free text to the end of the line, so an edge that has one
   // is emitted after the parenthetical tags - both to match firstmate's real
@@ -454,6 +496,13 @@ function buildTask(
   bodyLines: string[],
 ): Task {
   const tags = extractTags(rest);
+  // Resolved before the public-followup metadata check so a row that is both a
+  // public-followup and a continuation owner names the continuation rule.
+  const continuation: Continuation | undefined = resolveContinuationTags(
+    id,
+    tags.kind,
+    tags.continuations,
+  );
   const metadata = extractPublicFollowupMetadata(id, tags.kind, bodyLines);
   const task: Task = {
     id,
@@ -480,6 +529,7 @@ function buildTask(
   if (tags.closed) task.closed = tags.closed;
   if (tags.priority !== undefined) task.priority = tags.priority;
   if (tags.hold) task.hold = tags.hold;
+  if (continuation) task.continuation = continuation;
   return task;
 }
 
