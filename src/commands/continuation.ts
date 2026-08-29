@@ -186,9 +186,12 @@ async function continuationSet(
       ["A public obligation is never a continuation child"],
     );
   }
-  // "live" is a claim-time precondition. An already-owned relation whose child
-  // later completes stays valid and inert - a done child is not owner success.
-  if (childTask.state === "done") {
+  // "live" is a claim-time precondition on a NEW claim only. Replaying a
+  // relation that already exists is the documented idempotent no-op, and an
+  // already-owned relation whose child later completes stays valid and inert -
+  // a done child is not owner success.
+  const already = current.continuation?.child === child;
+  if (!already && childTask.state === "done") {
     throw new AxiError(
       `Continuation child "${child}" is already Done`,
       "VALIDATION_ERROR",
@@ -210,7 +213,6 @@ async function continuationSet(
     );
   }
 
-  const already = current.continuation?.child === child;
   const task = already
     ? current
     : (await store.update(owner, { continuation: { child } })).task;

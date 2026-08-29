@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ID_RE } from "../src/backends/markdown-grammar.js";
 import {
-  CONTINUATION_CHILD_RE,
   CONTINUATION_TAG,
+  assertClaimableContinuationChild,
   assertNoContinuationFaults,
   continuationChildState,
   continuationFaultFor,
@@ -33,11 +32,45 @@ function task(
 }
 
 describe("continuation seam", () => {
-  it("keeps its child-id pattern identical to the grammar's ID_RE", () => {
-    // The two are deliberately separate constants (the grammar imports this
-    // module, not the other way round); they must never drift apart.
-    expect(CONTINUATION_CHILD_RE.source).toBe(ID_RE.source);
+  it("names the canonical managed tag", () => {
     expect(CONTINUATION_TAG).toBe("continuation");
+  });
+
+  describe("assertClaimableContinuationChild", () => {
+    it("accepts a live, non-public-followup child", () => {
+      expect(() =>
+        assertClaimableContinuationChild("owner-h1", { child: "child-k3" }, [
+          task("owner-h1"),
+          task("child-k3", "in_flight"),
+        ]),
+      ).not.toThrow();
+    });
+
+    it("refuses a Done child on a new claim", () => {
+      expect(() =>
+        assertClaimableContinuationChild("owner-h1", { child: "child-k3" }, [
+          task("owner-h1"),
+          task("child-k3", "done"),
+        ]),
+      ).toThrow(/already Done/);
+    });
+
+    it("refuses a public-followup child", () => {
+      expect(() =>
+        assertClaimableContinuationChild("owner-h1", { child: "pf-ab" }, [
+          task("owner-h1"),
+          task("pf-ab", "queued", undefined, "public-followup"),
+        ]),
+      ).toThrow(/public-followup obligation/);
+    });
+
+    it("leaves an absent child to the home-shaped dangling fault", () => {
+      expect(() =>
+        assertClaimableContinuationChild("owner-h1", { child: "gone-k9" }, [
+          task("owner-h1"),
+        ]),
+      ).not.toThrow();
+    });
   });
 
   describe("normalizeContinuation", () => {

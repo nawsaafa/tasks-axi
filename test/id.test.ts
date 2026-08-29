@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ID_RE } from "../src/backends/markdown-grammar.js";
+import { ID_RE } from "../src/id-pattern.js";
 import { mintId, validateId } from "../src/id.js";
 
 describe("id", () => {

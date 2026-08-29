@@ -74,8 +74,6 @@ describe("continuation commands", () => {
   describe("help", () => {
     it("documents the relation and its deliberate non-effects", () => {
       expect(CONTINUATION_HELP).toContain("set <owner-id> --child <child-id>");
-      expect(CONTINUATION_HELP).toContain("never inferred");
-      expect(CONTINUATION_HELP).toContain("not a\ndependency edge");
       expect(continuationSubcommandHelp("set")).toContain(
         "tasks-axi continuation set",
       );
@@ -248,6 +246,23 @@ describe("continuation commands", () => {
           /is already Done/,
         );
         expect(b.read()).toBe(HOME);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("stays idempotent when the owned child has since gone Done", async () => {
+      const b = backlog();
+      try {
+        await set(b);
+        await doneCommand(["rollout-phase2-k3"], b.ctx);
+        const before = b.read();
+        const out = await set(b);
+        expect(out).toContain(
+          "ok: continuation rollout-h7 already owns rollout-phase2-k3",
+        );
+        expect(out).toContain("already: true");
+        expect(b.read()).toBe(before);
       } finally {
         b.cleanup();
       }

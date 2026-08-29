@@ -714,12 +714,28 @@ describe("markdown grammar", () => {
       expect(renderBacklog(parseBacklog(src))).toBe(src);
     });
 
+    it("leaves a legacy multi-word parenthetical as prose and round-trips it", () => {
+      const src = [
+        "# Backlog",
+        "",
+        "## Queued",
+        "- [ ] x - rework (continuation: see the phase-2 notes)",
+        "",
+      ].join("\n");
+      const tasks = tasksOf(parseBacklog(src));
+      expect(tasks[0].continuation).toBeUndefined();
+      expect(tasks[0].title).toBe(
+        "rework (continuation: see the phase-2 notes)",
+      );
+      expect(renderBacklog(parseBacklog(src))).toBe(src);
+    });
+
     it("refuses a malformed, valueless, self-named, or duplicated relation", () => {
       const bad = (rest: string): string =>
         `# Backlog\n\n## Queued\n- [ ] owner-h1 - ${rest}\n`;
-      expect(() => parseBacklog(bad("work (continuation: not an id)"))).toThrow(
-        /malformed continuation child/,
-      );
+      expect(() =>
+        parseBacklog(bad("work (continuation: not-an-id!)")),
+      ).toThrow(/malformed continuation child/);
       expect(() => parseBacklog(bad("work (continuation:)"))).toThrow(
         /no child id/,
       );

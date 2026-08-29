@@ -1,5 +1,6 @@
 import { CONTINUATION_TAG, resolveContinuationTags } from "../continuation.js";
 import { AxiError } from "../errors.js";
+import { ID_CHARS } from "../id-pattern.js";
 import type {
   Continuation,
   Dep,
@@ -73,13 +74,9 @@ export interface BacklogDoc {
 // Bullet patterns
 // ---------------------------------------------------------------------------
 
-const ID_CHARS = "[A-Za-z0-9][A-Za-z0-9._-]*";
 const IN_FLIGHT_RE = new RegExp(`^- \\*\\*(${ID_CHARS})\\*\\* - (.*)$`);
 const QUEUED_RE = new RegExp(`^- \\[ \\] (${ID_CHARS}) - (.*)$`);
 const DONE_RE = new RegExp(`^- \\[x\\] (${ID_CHARS}) - (.*)$`);
-
-/** Validate a caller-supplied id round-trips through the markdown grammar. */
-export const ID_RE = new RegExp(`^${ID_CHARS}$`);
 
 function semanticLine(line: string): string {
   return line.endsWith("\r") ? line.slice(0, -1) : line;
@@ -134,10 +131,14 @@ const TAIL_HOLD_KIND = new RegExp(
   `\\s*\\(hold-kind:\\s*(${HOLD_KINDS.join("|")})\\)\\s*$`,
 );
 const TAIL_HOLD_UNTIL = new RegExp(`\\s*\\(hold-until:\\s*(${DATE})\\)\\s*$`);
-// Captured permissively (including an empty value) so a malformed or valueless
-// relation surfaces as a fail-visible error instead of sliding back into prose.
+// Only the canonical single-token managed shape is recognized, so a legacy
+// multi-word parenthetical (e.g. "(continuation: see the phase-2 notes)") stays
+// ordinary prose and round-trips byte-exact. Within that shape the value is
+// captured permissively (including an empty one) so a malformed or valueless
+// managed relation surfaces as a fail-visible error instead of sliding back
+// into prose.
 const TAIL_CONTINUATION = new RegExp(
-  `\\s*\\(${CONTINUATION_TAG}:([^()]*)\\)\\s*$`,
+  `\\s*\\(${CONTINUATION_TAG}:[ \\t]*([^()\\s]*)[ \\t]*\\)\\s*$`,
 );
 
 const REPORT_LINK = /\bdata\/\S+?\/report\.md\b/g;

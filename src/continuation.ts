@@ -1,4 +1,5 @@
 import { AxiError } from "./errors.js";
+import { ID_RE } from "./id-pattern.js";
 import type { Continuation, Task } from "./model.js";
 import { PUBLIC_FOLLOWUP_KIND } from "./public-followup.js";
 
@@ -32,13 +33,6 @@ import { PUBLIC_FOLLOWUP_KIND } from "./public-followup.js";
 
 /** The canonical trailing tag name: `(continuation: <child-id>)`. */
 export const CONTINUATION_TAG = "continuation";
-
-/**
- * Child ids are ordinary task ids. Mirrors `ID_RE` in `markdown-grammar.ts`;
- * held locally so this module stays a leaf (the grammar imports it, not the
- * other way round). `test/continuation.test.ts` fails if the two ever drift.
- */
-export const CONTINUATION_CHILD_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export const CONTINUATION_FAULT_CODES = ["dangling", "conflict"] as const;
 export type ContinuationFaultCode = (typeof CONTINUATION_FAULT_CODES)[number];
@@ -76,7 +70,7 @@ export function normalizeContinuation(
       [CHILD_SHAPE_HINT],
     );
   }
-  if (!CONTINUATION_CHILD_RE.test(raw)) {
+  if (!ID_RE.test(raw)) {
     throw relationError(
       `Task "${ownerId}" has a malformed continuation child "${raw}"`,
       [CHILD_SHAPE_HINT],
@@ -117,6 +111,37 @@ export function resolveContinuationTags(
     );
   }
   return normalizeContinuation(ownerId, { child: values[0] }, ownerKind);
+}
+
+/**
+ * The claim-time preconditions on the *child* side of a newly written
+ * relation: the child must be live, and a public-followup obligation is never a
+ * continuation child (the relation is refused on both ends). Enforced at the
+ * `Store` write boundary so every backend inherits them, and only when the
+ * relation is newly set or changed - an existing relation stays valid when its
+ * child later goes Done, which is deliberately inert and never owner success.
+ *
+ * A child row that is absent here is a home-shaped `dangling` fault, owned by
+ * `assertNoContinuationFaults` on the write's post-state, not by this check.
+ */
+export function assertClaimableContinuationChild(
+  ownerId: string,
+  continuation: Continuation,
+  tasks: Task[],
+): void {
+  const child = tasks.find((task) => task.id === continuation.child);
+  if (child === undefined) return;
+  if (child.kind === PUBLIC_FOLLOWUP_KIND) {
+    throw relationError(
+      `Continuation child "${child.id}" is a public-followup obligation`,
+      ["A public obligation is never a continuation child"],
+    );
+  }
+  if (child.state === "done") {
+    throw relationError(`Continuation child "${child.id}" is already Done`, [
+      `Name a live child row for "${ownerId}", or reopen it with \`tasks-axi reopen ${child.id}\``,
+    ]);
+  }
 }
 
 export function sameContinuation(

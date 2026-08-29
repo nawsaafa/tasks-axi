@@ -1597,6 +1597,48 @@ describe("MarkdownStore", () => {
       }
     });
 
+    it("refuses a Done child on a new claim at the store boundary", async () => {
+      const done = HOME.replace(
+        "## Done\n",
+        "## Done\n- [x] shipped-k9 - already shipped (done 2026-06-01)\n",
+      );
+      const b = makeBacklog(done);
+      try {
+        await expect(
+          b.store.update("owner-h1", { continuation: { child: "shipped-k9" } }),
+        ).rejects.toThrow(/already Done/);
+        await expect(
+          b.store.create({
+            id: "second-h2",
+            title: "another owner",
+            continuation: { child: "shipped-k9" },
+          }),
+        ).rejects.toThrow(/already Done/);
+        expect(b.read()).not.toContain("(continuation:");
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("keeps an existing relation valid once its child goes Done", async () => {
+      const b = makeBacklog(HOME);
+      try {
+        await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        await b.store.transition("child-k3", "done");
+        expect((await b.store.get("owner-h1"))?.continuation).toEqual({
+          child: "child-k3",
+        });
+        const repeat = await b.store.update("owner-h1", {
+          continuation: { child: "child-k3" },
+        });
+        expect(repeat.changed).toEqual([]);
+      } finally {
+        b.cleanup();
+      }
+    });
+
     it("refuses a self-named or malformed relation on write", async () => {
       const b = makeBacklog(HOME);
       try {

@@ -7,6 +7,7 @@ import {
 } from "node:fs";
 import { dirname, resolve } from "node:path";
 import {
+  assertClaimableContinuationChild,
   assertNoContinuationFaults,
   continuationChildIds,
   continuationOwners,
@@ -653,6 +654,13 @@ export class MarkdownStore implements Store {
       }
       const task = this.taskFromInput(input);
       this.requireExistingDeps(doc, task.deps);
+      if (task.continuation) {
+        assertClaimableContinuationChild(
+          task.id,
+          task.continuation,
+          this.allTasks(doc),
+        );
+      }
       const entry: TaskEntry = { kind: "task", task, raw: [], dirty: true };
       // New in_flight work goes to the top; queued work appends to the bottom.
       this.insert(
@@ -776,6 +784,11 @@ export class MarkdownStore implements Store {
         );
         if (!sameContinuation(task.continuation, continuation)) {
           if (continuation) {
+            assertClaimableContinuationChild(
+              task.id,
+              continuation,
+              this.allTasks(doc),
+            );
             task.continuation = continuation;
           } else {
             delete task.continuation;
