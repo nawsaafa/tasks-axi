@@ -8,11 +8,13 @@ import {
 import { dirname, resolve } from "node:path";
 import {
   assertClaimableContinuationChild,
-  assertNoContinuationFaults,
+  assertContinuationFaultsNotWorsened,
   continuationChildIds,
+  continuationFaults,
   continuationOwners,
   normalizeContinuation,
   sameContinuation,
+  type ContinuationFault,
 } from "../continuation.js";
 import { AxiError } from "../errors.js";
 import { validateDependencyId, validateId } from "../id.js";
@@ -84,6 +86,8 @@ const DEP_REASON_EDGE_MARKER_RE =
 interface LoadedBacklogDoc {
   doc: BacklogDoc;
   source: string | undefined;
+  /** Home-shaped continuation faults present before the write. */
+  faults: ContinuationFault[];
 }
 
 interface ArchiveRestorePoint {
@@ -365,7 +369,8 @@ export class MarkdownStore implements Store {
 
   private loadForUpdate(): LoadedBacklogDoc {
     const source = this.loadSource();
-    return { doc: parseBacklog(source ?? ""), source };
+    const doc = parseBacklog(source ?? "");
+    return { doc, source, faults: continuationFaults(this.allTasks(doc)) };
   }
 
   private allTasks(doc: BacklogDoc): Task[] {
@@ -512,15 +517,19 @@ export class MarkdownStore implements Store {
   }
 
   /**
-   * Write the document, refusing any post-state that still carries a
-   * home-shaped continuation fault. Gating the *result* (rather than the state
-   * on disk) keeps repair possible - `continuation clear` removes the fault and
-   * lands - while no write may ever leave a dangling or conflicting relation
-   * behind.
+   * Write the document, comparing its post-state continuation faults against
+   * the pre-write baseline. Gating the *result* (rather than the state on
+   * disk) keeps repair possible - every `continuation clear` that shrinks the
+   * fault set lands, even on a home carrying several faults - while no write
+   * may ever introduce a dangling or conflicting relation or leave the
+   * existing ones unreduced.
    */
   private persist(loaded: LoadedBacklogDoc): void {
     this.assertUnchanged(loaded);
-    assertNoContinuationFaults(this.allTasks(loaded.doc));
+    assertContinuationFaultsNotWorsened(
+      this.allTasks(loaded.doc),
+      loaded.faults,
+    );
     atomicWrite(this.path, renderBacklog(loaded.doc));
   }
 

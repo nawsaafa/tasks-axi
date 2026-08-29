@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTINUATION_TAG,
   assertClaimableContinuationChild,
-  assertNoContinuationFaults,
+  assertContinuationFaultsNotWorsened,
   continuationChildState,
   continuationFaultFor,
   continuationFaults,
@@ -140,7 +140,7 @@ describe("continuation seam", () => {
       expect(continuationChildIds(tasks)).toEqual(new Set(["child-k3"]));
       expect(continuationChildState(tasks[0], tasks)).toBe("queued");
       expect(continuationFaultFor(tasks[0], tasks)).toBeUndefined();
-      expect(() => assertNoContinuationFaults(tasks)).not.toThrow();
+      expect(() => assertContinuationFaultsNotWorsened(tasks)).not.toThrow();
     });
 
     it("reports a dangling relation and refuses it on a write", () => {
@@ -156,7 +156,9 @@ describe("continuation seam", () => {
       ]);
       expect(continuationChildState(tasks[0], tasks)).toBe("missing");
       expect(continuationFaultFor(tasks[0], tasks)).toBe("dangling");
-      expect(() => assertNoContinuationFaults(tasks)).toThrow(/does not exist/);
+      expect(() => assertContinuationFaultsNotWorsened(tasks)).toThrow(
+        /does not exist/,
+      );
     });
 
     it("reports a conflicting child claimed by two owners", () => {
@@ -171,9 +173,52 @@ describe("continuation seam", () => {
       expect(faults[0].owners).toEqual(["owner-a", "owner-b"]);
       // A conflicted child resolves to no single canonical owner.
       expect(continuationOwnerOf("child-k3", tasks)).toBeUndefined();
-      expect(() => assertNoContinuationFaults(tasks)).toThrow(
+      expect(() => assertContinuationFaultsNotWorsened(tasks)).toThrow(
         /claimed by more than one owner/,
       );
+    });
+
+    it("allows a write that strictly shrinks an existing fault set", () => {
+      const before = continuationFaults([
+        task("owner-a", "in_flight", "ghost-1"),
+        task("owner-b", "in_flight", "ghost-2"),
+      ]);
+      expect(before).toHaveLength(2);
+      const repaired = [
+        task("owner-a"),
+        task("owner-b", "in_flight", "ghost-2"),
+      ];
+      expect(() =>
+        assertContinuationFaultsNotWorsened(repaired, before),
+      ).not.toThrow();
+      expect(() =>
+        assertContinuationFaultsNotWorsened(
+          [task("owner-a"), task("owner-b")],
+          before,
+        ),
+      ).not.toThrow();
+    });
+
+    it("refuses a write that preserves or introduces a fault", () => {
+      const before = continuationFaults([
+        task("owner-a", "in_flight", "ghost-1"),
+        task("owner-b", "in_flight", "ghost-2"),
+      ]);
+      const unchanged = [
+        task("owner-a", "done", "ghost-1"),
+        task("owner-b", "in_flight", "ghost-2"),
+      ];
+      expect(() =>
+        assertContinuationFaultsNotWorsened(unchanged, before),
+      ).toThrow(/"ghost-1"/);
+      const worsened = [
+        task("owner-a"),
+        task("owner-b", "in_flight", "ghost-2"),
+        task("owner-c", "in_flight", "ghost-3"),
+      ];
+      expect(() =>
+        assertContinuationFaultsNotWorsened(worsened, before),
+      ).toThrow(/"ghost-3"/);
     });
 
     it("has no continuation state for a row that owns nothing", () => {

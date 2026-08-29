@@ -26,9 +26,10 @@ import { PUBLIC_FOLLOWUP_KIND } from "./public-followup.js";
  * (malformed, missing, duplicate, self-named, public-followup owner) are
  * refused when the row is parsed, so a malformed relation can never be read as
  * a valid one. Home-shaped faults (dangling, conflicting) are reported by the
- * read surfaces and refused on the *post-state* of every write, so a faulted
- * backlog can still be inspected and repaired with a single `continuation
- * clear`, while no write may leave a fault behind.
+ * read surfaces and gated on the *post-state* of every write against the
+ * pre-write baseline, so a faulted backlog can still be inspected and repaired
+ * one `continuation clear` at a time, while no write may introduce a fault or
+ * leave the existing ones unreduced.
  */
 
 /** The canonical trailing tag name: `(continuation: <child-id>)`. */
@@ -122,7 +123,8 @@ export function resolveContinuationTags(
  * child later goes Done, which is deliberately inert and never owner success.
  *
  * A child row that is absent here is a home-shaped `dangling` fault, owned by
- * `assertNoContinuationFaults` on the write's post-state, not by this check.
+ * `assertContinuationFaultsNotWorsened` on the write's post-state, not by
+ * this check.
  */
 export function assertClaimableContinuationChild(
   ownerId: string,
@@ -233,24 +235,37 @@ export function continuationChildState(
   return tasks.find((t) => t.id === child)?.state ?? "missing";
 }
 
+function faultKey(fault: ContinuationFault): string {
+  return `${fault.code}:${fault.child}`;
+}
+
 /**
- * Refuse a backlog that still carries a home-shaped fault. Called on the
- * post-state of every write, so a repair (`continuation clear`) always works
- * while no write may leave a dangling or conflicting relation on disk.
+ * Refuse a write whose post-state introduces a home-shaped fault, or leaves an
+ * existing one unreduced. Comparing the result against the pre-write baseline
+ * is what keeps a faulted backlog repairable: an ordinary write on a faulted
+ * home is still refused, but every `continuation clear` that strictly shrinks
+ * the fault set lands, so even a home carrying several faults can be repaired
+ * one relation at a time and no write may ever add or preserve a fault.
  */
-export function assertNoContinuationFaults(tasks: Task[]): void {
-  const faults = continuationFaults(tasks);
-  if (faults.length === 0) return;
-  const first = faults[0];
+export function assertContinuationFaultsNotWorsened(
+  tasks: Task[],
+  before: ContinuationFault[] = [],
+): void {
+  const after = continuationFaults(tasks);
+  if (after.length === 0) return;
+  const known = new Set(before.map(faultKey));
+  const introduced = after.find((fault) => !known.has(faultKey(fault)));
+  if (introduced === undefined && after.length < before.length) return;
+  const blamed = introduced ?? after[0];
   const suggestions = [
-    `Clear it with \`tasks-axi continuation clear ${first.owners[0]}\`, or restore the named child row`,
+    `Clear it with \`tasks-axi continuation clear ${blamed.owners[0]}\`, or restore the named child row`,
   ];
-  if (faults.length > 1) {
+  if (after.length > 1) {
     suggestions.push(
       "Run `tasks-axi continuation list` to see every faulted relation",
     );
   }
-  throw relationError(first.message, suggestions);
+  throw relationError(blamed.message, suggestions);
 }
 
 function quoteList(ids: string[]): string {

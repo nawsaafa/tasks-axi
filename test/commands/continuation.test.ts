@@ -382,6 +382,63 @@ describe("continuation commands", () => {
         b.cleanup();
       }
     });
+
+    it("repairs a hand-edited home carrying two faults, one clear at a time", async () => {
+      const twoFaults = HOME.replace(
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22)",
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22) (continuation: ghost-1)",
+      ).replace(
+        "unrelated work (repo: other) (since 2026-06-22)",
+        "unrelated work (repo: other) (since 2026-06-22) (continuation: ghost-2)",
+      );
+      const b = backlog(twoFaults);
+      try {
+        await expect(
+          startCommand(["rollout-phase2-k3"], b.ctx),
+        ).rejects.toThrow(/"ghost-1"/);
+
+        await run(b, "clear", ["rollout-h7"]);
+        expect(b.read()).not.toContain("(continuation: ghost-1)");
+        expect(b.read()).toContain("(continuation: ghost-2)");
+
+        await expect(
+          startCommand(["rollout-phase2-k3"], b.ctx),
+        ).rejects.toThrow(/"ghost-2"/);
+
+        await run(b, "clear", ["unrelated-q1"]);
+        expect(b.read()).not.toContain("(continuation:");
+        expect(JSON.parse(await run(b, "list", ["--json"])).faults).toEqual([]);
+        await startCommand(["rollout-phase2-k3"], b.ctx);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("repairs a duplicated owner naming one missing child", async () => {
+      const duplicated = HOME.replace(
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22)",
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22) (continuation: ghost-k9)",
+      ).replace(
+        "unrelated work (repo: other) (since 2026-06-22)",
+        "unrelated work (repo: other) (since 2026-06-22) (continuation: ghost-k9)",
+      );
+      const b = backlog(duplicated);
+      try {
+        const listed = JSON.parse(await run(b, "list", ["--json"]));
+        expect(listed.faults.map((f: { code: string }) => f.code)).toEqual([
+          "dangling",
+          "conflict",
+        ]);
+
+        await run(b, "clear", ["rollout-h7"]);
+        await run(b, "clear", ["unrelated-q1"]);
+        expect(b.read()).not.toContain("(continuation:");
+        expect(JSON.parse(await run(b, "list", ["--json"])).faults).toEqual([]);
+        await startCommand(["rollout-phase2-k3"], b.ctx);
+      } finally {
+        b.cleanup();
+      }
+    });
   });
 
   describe("show / list", () => {

@@ -247,7 +247,8 @@ Map them to structured holds by preserving the original prose as the reason and 
 Do not bulk-rewrite live backlogs just to chase these tags; migrate only when touching the task or when a hold migration specifically targets them.
 `add --blocked-by` and `block --by` require the referenced task to exist, and `rm` refuses to remove a task that still blocks active work.
 Single-task `mv` has the same protection; use multi-task `mv` to move its active dependents with it.
-`rm`, `mv`, and `prune` apply the same protection to a claimed continuation child, so the relation is never silently stranded, reassigned, or archived away.
+`rm`, `mv`, and `prune` apply the same protection to a claimed continuation _child_, so a child is never removed, moved away from its owner, or archived out from under it.
+The _owner_ carries no such protection: a completed owner row is archived by `prune` like any other Done task, tag included, and the child is simply unclaimed in the live home afterwards.
 
 ## Configuration
 
