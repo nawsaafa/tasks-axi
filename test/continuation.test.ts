@@ -221,6 +221,44 @@ describe("continuation seam", () => {
       ).toThrow(/"ghost-3"/);
     });
 
+    it("counts releasing one of three conflicting owners as a repair", () => {
+      const before = continuationFaults([
+        task("owner-a", "in_flight", "shared-k9"),
+        task("owner-b", "in_flight", "shared-k9"),
+        task("owner-c", "in_flight", "shared-k9"),
+        task("shared-k9"),
+      ]);
+      expect(before).toHaveLength(1);
+      expect(before[0].owners).toHaveLength(3);
+      const released = [
+        task("owner-a"),
+        task("owner-b", "in_flight", "shared-k9"),
+        task("owner-c", "in_flight", "shared-k9"),
+        task("shared-k9"),
+      ];
+      expect(continuationFaults(released)).toHaveLength(1);
+      expect(() =>
+        assertContinuationFaultsNotWorsened(released, before),
+      ).not.toThrow();
+    });
+
+    it("refuses a write that adds another owner to a standing conflict", () => {
+      const before = continuationFaults([
+        task("owner-a", "in_flight", "shared-k9"),
+        task("owner-b", "in_flight", "shared-k9"),
+        task("shared-k9"),
+      ]);
+      const grown = [
+        task("owner-a", "in_flight", "shared-k9"),
+        task("owner-b", "in_flight", "shared-k9"),
+        task("owner-c", "in_flight", "shared-k9"),
+        task("shared-k9"),
+      ];
+      expect(() => assertContinuationFaultsNotWorsened(grown, before)).toThrow(
+        /claimed by more than one owner/,
+      );
+    });
+
     it("has no continuation state for a row that owns nothing", () => {
       const tasks = [task("plain-q1")];
       expect(continuationChildState(tasks[0], tasks)).toBeUndefined();

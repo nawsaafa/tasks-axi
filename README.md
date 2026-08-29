@@ -154,7 +154,7 @@ The relation is deliberately inert. It does not create the child row, change `re
 
 A child resolves to at most one owner per backlog, and a row owns at most one child.
 Only the canonical single-token trailing `(continuation: <child-id>)` shape is the managed tag - a trailing multi-word parenthetical such as `(continuation: see the phase-2 notes)` stays ordinary prose and round-trips byte-exact.
-Within that managed shape every fault is fail-visible rather than silently tolerated: a malformed, valueless, duplicated, or self-named relation is refused when the row is read, and a dangling or conflicting relation is reported by `continuation list` (and by `list --fields continuation,continuation_child_state,continuation_fault`) while every write is refused until it is repaired with a single `continuation clear`.
+Within that managed shape every fault is fail-visible rather than silently tolerated: a malformed, valueless, duplicated, or self-named relation is refused when the row is read, and a dangling or conflicting relation is reported by `continuation list` (and by `list --fields continuation,continuation_child_state,continuation_fault`) while every write is refused until it is repaired, one `continuation clear` at a time.
 `rm`, `mv`, and `prune` will not strand or archive a claimed child out from under its owner; move the owner and child together, or clear the relation first.
 
 ## Durable public follow-ups

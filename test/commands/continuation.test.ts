@@ -439,6 +439,92 @@ describe("continuation commands", () => {
         b.cleanup();
       }
     });
+
+    it("repairs a child claimed by three owners, one clear at a time", async () => {
+      const threeOwners = HOME.replace(
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22)",
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22) (continuation: rollout-phase2-k3)",
+      )
+        .replace(
+          "unrelated work (repo: other) (since 2026-06-22)",
+          "unrelated work (repo: other) (since 2026-06-22) (continuation: rollout-phase2-k3)",
+        )
+        .replace(
+          "something finished (done 2026-06-20)",
+          "something finished (done 2026-06-20) (continuation: rollout-phase2-k3)",
+        );
+      const b = backlog(threeOwners);
+      try {
+        const conflictOwners = async (): Promise<string[][]> =>
+          JSON.parse(await run(b, "list", ["--json"])).faults.map(
+            (fault: { owners: string[] }) => fault.owners,
+          );
+        expect(await conflictOwners()).toEqual([
+          ["rollout-h7", "unrelated-q1", "older-d1"],
+        ]);
+
+        await expect(
+          startCommand(["rollout-phase2-k3"], b.ctx),
+        ).rejects.toThrow(/claimed by more than one owner/);
+
+        await run(b, "clear", ["rollout-h7"]);
+        expect(await conflictOwners()).toEqual([["unrelated-q1", "older-d1"]]);
+
+        // A fourth owner cannot be added back while the conflict stands.
+        await expect(
+          b.store.update("rollout-h7", {
+            continuation: { child: "rollout-phase2-k3" },
+          }),
+        ).rejects.toThrow(/claimed by more than one owner/);
+
+        await run(b, "clear", ["unrelated-q1"]);
+        expect(await conflictOwners()).toEqual([]);
+        expect(b.read()).toContain("(continuation: rollout-phase2-k3)");
+        await startCommand(["rollout-phase2-k3"], b.ctx);
+      } finally {
+        b.cleanup();
+      }
+    });
+
+    it("repairs a missing child claimed by three owners", async () => {
+      const threeGhostOwners = HOME.replace(
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22)",
+        "SHIP roll the widget out (repo: widget) (since 2026-06-22) (continuation: ghost-k9)",
+      )
+        .replace(
+          "unrelated work (repo: other) (since 2026-06-22)",
+          "unrelated work (repo: other) (since 2026-06-22) (continuation: ghost-k9)",
+        )
+        .replace(
+          "something finished (done 2026-06-20)",
+          "something finished (done 2026-06-20) (continuation: ghost-k9)",
+        );
+      const b = backlog(threeGhostOwners);
+      try {
+        const faultCodes = async (): Promise<string[]> =>
+          JSON.parse(await run(b, "list", ["--json"])).faults.map(
+            (fault: { code: string }) => fault.code,
+          );
+        expect(await faultCodes()).toEqual(["dangling", "conflict"]);
+
+        await run(b, "clear", ["rollout-h7"]);
+        expect(await faultCodes()).toEqual(["dangling", "conflict"]);
+
+        await expect(
+          startCommand(["rollout-phase2-k3"], b.ctx),
+        ).rejects.toThrow(/"ghost-k9"/);
+
+        await run(b, "clear", ["unrelated-q1"]);
+        expect(await faultCodes()).toEqual(["dangling"]);
+
+        await run(b, "clear", ["older-d1"]);
+        expect(await faultCodes()).toEqual([]);
+        expect(b.read()).not.toContain("(continuation:");
+        await startCommand(["rollout-phase2-k3"], b.ctx);
+      } finally {
+        b.cleanup();
+      }
+    });
   });
 
   describe("show / list", () => {

@@ -239,13 +239,29 @@ function faultKey(fault: ContinuationFault): string {
   return `${fault.code}:${fault.child}`;
 }
 
+/** How many owners each conflicted child carries, keyed by child id. */
+function conflictWeights(faults: ContinuationFault[]): Map<string, number> {
+  const weights = new Map<string, number>();
+  for (const fault of faults) {
+    if (fault.code === "conflict")
+      weights.set(fault.child, fault.owners.length);
+  }
+  return weights;
+}
+
 /**
- * Refuse a write whose post-state introduces a home-shaped fault, or leaves an
- * existing one unreduced. Comparing the result against the pre-write baseline
+ * Refuse a write whose post-state introduces a home-shaped fault, or leaves the
+ * existing ones unreduced. Comparing the result against the pre-write baseline
  * is what keeps a faulted backlog repairable: an ordinary write on a faulted
- * home is still refused, but every `continuation clear` that strictly shrinks
- * the fault set lands, so even a home carrying several faults can be repaired
- * one relation at a time and no write may ever add or preserve a fault.
+ * home is still refused, but a `continuation clear` that shrinks the fault set
+ * lands, so even a home carrying several faults can be repaired one relation at
+ * a time and no write may ever add or grow a fault.
+ *
+ * Progress is measured two ways, because one conflicted child is a single fault
+ * entry no matter how many owners name it: the fault list may shrink, or a
+ * conflicted child may lose an owner. Releasing one of three owners is a repair
+ * even though the conflict itself survives; a write that adds an owner to a
+ * conflict is refused even if it happens to resolve another fault.
  */
 export function assertContinuationFaultsNotWorsened(
   tasks: Task[],
@@ -255,8 +271,27 @@ export function assertContinuationFaultsNotWorsened(
   if (after.length === 0) return;
   const known = new Set(before.map(faultKey));
   const introduced = after.find((fault) => !known.has(faultKey(fault)));
-  if (introduced === undefined && after.length < before.length) return;
-  const blamed = introduced ?? after[0];
+  const wasConflicted = conflictWeights(before);
+  const isConflicted = conflictWeights(after);
+  let grown: ContinuationFault | undefined;
+  let shrank = false;
+  for (const fault of after) {
+    if (fault.code !== "conflict") continue;
+    const was = wasConflicted.get(fault.child) ?? 0;
+    if (fault.owners.length > was) grown ??= fault;
+    if (fault.owners.length < was) shrank = true;
+  }
+  for (const child of wasConflicted.keys()) {
+    if (!isConflicted.has(child)) shrank = true;
+  }
+  if (
+    introduced === undefined &&
+    grown === undefined &&
+    (after.length < before.length || shrank)
+  ) {
+    return;
+  }
+  const blamed = introduced ?? grown ?? after[0];
   const suggestions = [
     `Clear it with \`tasks-axi continuation clear ${blamed.owners[0]}\`, or restore the named child row`,
   ];
