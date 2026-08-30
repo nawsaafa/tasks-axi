@@ -5,8 +5,17 @@ set -o pipefail
 base_sha="${1:?base sha required}"
 head_sha="${2:?head sha required}"
 
+# The single authorized manual manifest correction on the canonical fork.
+# Hardcoded to this exact version pair; every other hand-edit stays refused.
+exception_base_version="0.2.5"
+exception_head_version="0.3.1"
+
+changes=$(
+  git diff --name-status --find-renames --find-copies --find-copies-harder "${base_sha}...${head_sha}"
+)
+
 violated=$(
-  git diff --name-status --find-renames --find-copies --find-copies-harder "${base_sha}...${head_sha}" |
+  printf '%s\n' "$changes" |
     awk '
       function generated(path) {
         return path == "CHANGELOG.md" || path == ".release-please-manifest.json"
@@ -27,6 +36,47 @@ violated=$(
       }
     '
 )
+
+json_field() {
+  git show "${1}:${2}" 2>/dev/null |
+    grep -o "\"${3}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" |
+    head -n 1 |
+    sed 's/.*"\([^"]*\)"$/\1/' || true
+}
+
+manifest_version() {
+  json_field "$1" ".release-please-manifest.json" "\\."
+}
+
+package_version() {
+  json_field "$1" "package.json" "version"
+}
+
+is_authorized_manifest_correction() {
+  [ "$violated" = " .release-please-manifest.json" ] || return 1
+
+  printf '%s\n' "$changes" |
+    awk '$1 == "M" && $2 == ".release-please-manifest.json" { found = 1 }
+         END { exit found ? 0 : 1 }' || return 1
+
+  printf '%s\n' "$changes" |
+    awk '$2 == "CHANGELOG.md" || $3 == "CHANGELOG.md" { found = 1 }
+         END { exit found ? 1 : 0 }' || return 1
+
+  base_ref=$(git merge-base "${base_sha}" "${head_sha}" 2>/dev/null || printf '%s' "${base_sha}")
+  base_manifest=$(manifest_version "${base_ref}")
+  head_manifest=$(manifest_version "${head_sha}")
+
+  [ "$base_manifest" = "$exception_base_version" ] || return 1
+  [ "$head_manifest" = "$exception_head_version" ] || return 1
+  [ "$base_manifest" = "$(package_version "${base_ref}")" ] || return 1
+  [ "$head_manifest" = "$(package_version "${head_sha}")" ] || return 1
+}
+
+if [ -n "$violated" ] && is_authorized_manifest_correction; then
+  violated=""
+  echo "Allowing the one-time authorized manifest correction ${exception_base_version} -> ${exception_head_version}."
+fi
 
 if [ -n "$violated" ]; then
   {
