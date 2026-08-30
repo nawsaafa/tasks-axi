@@ -24,6 +24,17 @@ export const HOLD_KINDS = [
 ] as const;
 export type HoldKind = (typeof HOLD_KINDS)[number];
 
+/**
+ * Typed continuation/hold ownership: this row canonically holds ownership of
+ * one differently identified continuation child row in the same backlog.
+ * Semantics, invariants, and the deliberate non-effects live in
+ * `src/continuation.ts` - the single owner of this relation.
+ */
+export interface Continuation {
+  /** The differently identified continuation child this row owns. */
+  child: string;
+}
+
 export interface Hold {
   /** Human-readable reason for pausing dispatch. */
   reason: string;
@@ -76,6 +87,11 @@ export interface Task {
   deps: Dep[];
   /** Structured dispatch hold. Active holds keep queued work out of ready. */
   hold?: Hold;
+  /**
+   * Typed continuation ownership. Explicitly written, never inferred, and
+   * deliberately inert for readiness, dispatch, completion, and authority.
+   */
+  continuation?: Continuation;
   /** 0-4, optional (borrowed from beads; firstmate orders by list position). */
   priority?: number;
   /** Maps to `(since ...)`. */
@@ -100,6 +116,7 @@ export interface TaskInput {
   links?: TaskLink[];
   deps?: Dep[];
   hold?: Hold;
+  continuation?: Continuation;
   priority?: number;
   created?: string | null;
   closed?: string;
@@ -123,6 +140,11 @@ export interface TaskPatch {
   addLinks?: TaskLink[];
   /** Set a structured hold, or clear it with null. */
   hold?: Hold | null;
+  /**
+   * Set the typed continuation ownership, or clear it with null. Written only
+   * through the dedicated `tasks-axi continuation` commands.
+   */
+  continuation?: Continuation | null;
   priority?: number;
   meta?: Record<string, unknown>;
 }
@@ -136,6 +158,7 @@ export type TaskUpdateChange =
   | "priority"
   | "links"
   | "hold"
+  | "continuation"
   | "meta";
 
 export interface TaskUpdateResult {

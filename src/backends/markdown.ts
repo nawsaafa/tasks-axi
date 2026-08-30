@@ -6,6 +6,16 @@ import {
   unlinkSync,
 } from "node:fs";
 import { dirname, resolve } from "node:path";
+import {
+  assertClaimableContinuationChild,
+  assertContinuationFaultsNotWorsened,
+  continuationChildIds,
+  continuationFaults,
+  continuationOwners,
+  normalizeContinuation,
+  sameContinuation,
+  type ContinuationFault,
+} from "../continuation.js";
 import { AxiError } from "../errors.js";
 import { validateDependencyId, validateId } from "../id.js";
 import type {
@@ -76,6 +86,8 @@ const DEP_REASON_EDGE_MARKER_RE =
 interface LoadedBacklogDoc {
   doc: BacklogDoc;
   source: string | undefined;
+  /** Home-shaped continuation faults present before the write. */
+  faults: ContinuationFault[];
 }
 
 interface ArchiveRestorePoint {
@@ -291,6 +303,7 @@ function taskToInput(task: Task): TaskInput {
   if (task.repo) input.repo = task.repo;
   if (task.body) input.body = task.body;
   if (task.hold) input.hold = { ...task.hold };
+  if (task.continuation) input.continuation = { ...task.continuation };
   if (task.priority !== undefined) input.priority = task.priority;
   input.created = task.created ?? null;
   if (task.closed) input.closed = task.closed;
@@ -356,7 +369,8 @@ export class MarkdownStore implements Store {
 
   private loadForUpdate(): LoadedBacklogDoc {
     const source = this.loadSource();
-    return { doc: parseBacklog(source ?? ""), source };
+    const doc = parseBacklog(source ?? "");
+    return { doc, source, faults: continuationFaults(this.allTasks(doc)) };
   }
 
   private allTasks(doc: BacklogDoc): Task[] {
@@ -413,6 +427,21 @@ export class MarkdownStore implements Store {
       [
         `Unblock them first, e.g. \`tasks-axi unblock ${dependents[0]} --by ${id}\``,
       ],
+    );
+  }
+
+  /**
+   * Refuse to strand a continuation relation: a row that some owner explicitly
+   * holds may not be removed or moved out of the home until the owner releases
+   * it. The relation is never silently dropped and never implicitly reassigned.
+   */
+  private requireNoContinuationOwner(doc: BacklogDoc, id: string): void {
+    const owners = continuationOwners(this.allTasks(doc)).get(id);
+    if (owners === undefined || owners.length === 0) return;
+    throw new AxiError(
+      `Task "${id}" is the continuation child of ${owners.join(", ")}`,
+      "VALIDATION_ERROR",
+      [`Release it first, e.g. \`tasks-axi continuation clear ${owners[0]}\``],
     );
   }
 
@@ -487,8 +516,20 @@ export class MarkdownStore implements Store {
     }
   }
 
+  /**
+   * Write the document, comparing its post-state continuation faults against
+   * the pre-write baseline. Gating the *result* (rather than the state on
+   * disk) keeps repair possible - every `continuation clear` that shrinks the
+   * fault set lands, even on a home carrying several faults - while no write
+   * may ever introduce a dangling or conflicting relation or leave the
+   * existing ones unreduced.
+   */
   private persist(loaded: LoadedBacklogDoc): void {
     this.assertUnchanged(loaded);
+    assertContinuationFaultsNotWorsened(
+      this.allTasks(loaded.doc),
+      loaded.faults,
+    );
     atomicWrite(this.path, renderBacklog(loaded.doc));
   }
 
@@ -546,6 +587,8 @@ export class MarkdownStore implements Store {
     if (input.body) task.body = input.body;
     const hold = normalizeHold(input.hold);
     if (hold) task.hold = hold;
+    const continuation = normalizeContinuation(id, input.continuation, kind);
+    if (continuation) task.continuation = continuation;
     const priority = normalizePriority(input.priority);
     if (priority !== undefined) task.priority = priority;
     if (kind === PUBLIC_FOLLOWUP_KIND) {
@@ -620,6 +663,13 @@ export class MarkdownStore implements Store {
       }
       const task = this.taskFromInput(input);
       this.requireExistingDeps(doc, task.deps);
+      if (task.continuation) {
+        assertClaimableContinuationChild(
+          task.id,
+          task.continuation,
+          this.allTasks(doc),
+        );
+      }
       const entry: TaskEntry = { kind: "task", task, raw: [], dirty: true };
       // New in_flight work goes to the top; queued work appends to the bottom.
       this.insert(
@@ -646,7 +696,8 @@ export class MarkdownStore implements Store {
           patch.archiveBody ||
           (patch.addBodyLines?.length ?? 0) > 0 ||
           (patch.addLinks?.length ?? 0) > 0 ||
-          patch.hold !== undefined)
+          patch.hold !== undefined ||
+          patch.continuation !== undefined)
       ) {
         throw new AxiError(
           "Public-followup content and holds cannot change through generic update",
@@ -734,6 +785,26 @@ export class MarkdownStore implements Store {
           markChanged("hold");
         }
       }
+      if (patch.continuation !== undefined) {
+        const continuation = normalizeContinuation(
+          task.id,
+          patch.continuation ?? undefined,
+          task.kind,
+        );
+        if (!sameContinuation(task.continuation, continuation)) {
+          if (continuation) {
+            assertClaimableContinuationChild(
+              task.id,
+              continuation,
+              this.allTasks(doc),
+            );
+            task.continuation = continuation;
+          } else {
+            delete task.continuation;
+          }
+          markChanged("continuation");
+        }
+      }
       if (patch.priority !== undefined) {
         const priority = normalizePriority(patch.priority);
         if (task.priority !== priority) {
@@ -800,6 +871,7 @@ export class MarkdownStore implements Store {
         );
       }
       this.requireNoActiveDependents(doc, id);
+      this.requireNoContinuationOwner(doc, id);
       found.section.entries.splice(found.index, 1);
       this.persist(loaded);
       return task;
@@ -848,6 +920,7 @@ export class MarkdownStore implements Store {
       }
 
       this.requireNoSplitDeps(doc, targetDoc, uniqueIds);
+      this.requireNoSplitContinuations(doc, targetDoc, uniqueIds);
 
       const moved: Task[] = [];
       for (const found of founds) {
@@ -946,6 +1019,52 @@ export class MarkdownStore implements Store {
           ],
         );
       }
+    }
+  }
+
+  /**
+   * Refuse any move that would split a continuation relation across two homes.
+   * A child may not leave its owner behind, and an owner may not travel without
+   * a child that stays in the source and is absent from the destination -
+   * either way the relation would dangle. A relation wholly inside the moved
+   * set travels intact, so a single owner+child `mv` is allowed.
+   */
+  private requireNoSplitContinuations(
+    doc: BacklogDoc,
+    targetDoc: BacklogDoc,
+    ids: string[],
+  ): void {
+    const movedSet = new Set(ids);
+    const tasks = this.allTasks(doc);
+
+    for (const id of ids) {
+      const stranded = (continuationOwners(tasks).get(id) ?? []).filter(
+        (owner) => !movedSet.has(owner),
+      );
+      if (stranded.length > 0) {
+        throw new AxiError(
+          `Cannot move "${id}": it is the continuation child of ${stranded.join(", ")}, which stays behind`,
+          "VALIDATION_ERROR",
+          [
+            `Move them together, or release it first with \`tasks-axi continuation clear ${stranded[0]}\``,
+          ],
+        );
+      }
+    }
+
+    for (const id of ids) {
+      const found = this.findEntry(doc, id);
+      const child = found?.entry.task.continuation?.child;
+      if (child === undefined) continue;
+      if (movedSet.has(child)) continue;
+      if (this.findEntry(targetDoc, child)) continue;
+      throw new AxiError(
+        `Cannot move "${id}": its continuation child "${child}" would be stranded (not in the moved set and absent from the destination)`,
+        "VALIDATION_ERROR",
+        [
+          `Add "${child}" to the same \`mv\`, or release the relation with \`tasks-axi continuation clear ${id}\``,
+        ],
+      );
     }
   }
 
@@ -1165,9 +1284,13 @@ export class MarkdownStore implements Store {
       const section = doc.sections.find((s) => s.state === options.state);
       if (!section) return { archived: 0, ids: [] };
 
+      // A row some owner explicitly holds is never archived out from under it:
+      // the relation stays intact, and the owner never becomes an archive owner.
+      const claimed = continuationChildIds(this.allTasks(doc));
       const taskIndices: number[] = [];
       section.entries.forEach((entry, index) => {
         if (entry.kind !== "task") return;
+        if (claimed.has(entry.task.id)) return;
         if (
           isPublicFollowupTask(entry.task) &&
           entry.task.public_followup &&

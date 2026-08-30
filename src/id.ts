@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { ID_RE } from "./backends/markdown-grammar.js";
 import { AxiError } from "./errors.js";
+import { ID_RE } from "./id-pattern.js";
 
 /**
  * Id ownership (decision D6, report §2.2): the caller supplies the id - it is

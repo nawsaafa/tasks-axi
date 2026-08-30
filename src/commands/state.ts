@@ -666,6 +666,7 @@ function taskToInput(task: Task): TaskInput {
   if (task.repo) input.repo = task.repo;
   if (task.body) input.body = task.body;
   if (task.hold) input.hold = { ...task.hold };
+  if (task.continuation) input.continuation = { ...task.continuation };
   if (task.priority !== undefined) input.priority = task.priority;
   input.created = task.created ?? null;
   if (task.closed) input.closed = task.closed;

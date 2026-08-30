@@ -103,6 +103,7 @@ export function taskToJson(task: Task, all?: Task[]): Record<string, unknown> {
           until: task.hold.until ?? null,
         }
       : null,
+    continuation: task.continuation ? { child: task.continuation.child } : null,
     links: task.public_followup
       ? []
       : task.links.map((l) => ({ kind: l.kind, url: l.url })),

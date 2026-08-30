@@ -227,6 +227,39 @@ describe("CLI entrypoint", () => {
     );
   });
 
+  it("returns focused help for a continuation subcommand", async () => {
+    const c = capture();
+    await main({ argv: ["continuation", "set", "--help"], stdout: c.stdout });
+    expect(c.read()).toBe(
+      "usage: tasks-axi continuation set <owner-id> --child <child-id> [--json]",
+    );
+  });
+
+  it("routes the continuation namespace and records one relation", async () => {
+    const c = capture();
+    await main({
+      argv: [
+        "continuation",
+        "set",
+        "lease-adopt",
+        "--child",
+        "cert-cleanup",
+        "--json",
+      ],
+      stdout: c.stdout,
+    });
+    const payload = JSON.parse(c.read()) as Record<string, any>;
+    expect(payload.ok).toBe(true);
+    expect(payload.continuation).toMatchObject({
+      owner: "lease-adopt",
+      child: "cert-cleanup",
+      fault: null,
+    });
+    expect(readFileSync(path, "utf8")).toContain(
+      "(continuation: cert-cleanup)",
+    );
+  });
+
   it("creates and reads a durable public-followup through the CLI namespace", async () => {
     const requestPath = join(dir, "request.json");
     const expectedPath = join(dir, "expected.json");
