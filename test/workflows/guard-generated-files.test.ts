@@ -46,10 +46,14 @@ function commit(repo: string, message: string): string {
 }
 
 function writeManifest(repo: string, version: string): void {
-  writeFileSync(
-    join(repo, ".release-please-manifest.json"),
+  writeManifestRaw(
+    repo,
     `${JSON.stringify({ ".": version }, null, 2)}\n`,
   );
+}
+
+function writeManifestRaw(repo: string, contents: string): void {
+  writeFileSync(join(repo, ".release-please-manifest.json"), contents);
 }
 
 function writePackage(repo: string, version: string): void {
@@ -228,6 +232,54 @@ describe("guard-generated-files workflow helper", () => {
     const base = commit(repo, "seed");
     writeRelease(repo, "0.3.1");
     const head = commit(repo, "chore: correction from a drifted base");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
+  it("rejects a malformed JSON manifest even at the authorized versions", () => {
+    const repo = initRepo();
+    seedRelease(repo, "0.2.5");
+    const base = commit(repo, "seed");
+    writePackage(repo, "0.3.1");
+    writeManifestRaw(repo, "{\n  \".\": \"0.3.1\"\n");
+    const head = commit(repo, "chore: truncated manifest");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
+  it("rejects an extra root key on an otherwise authorized 0.3.1 manifest", () => {
+    const repo = initRepo();
+    seedRelease(repo, "0.2.5");
+    const base = commit(repo, "seed");
+    writePackage(repo, "0.3.1");
+    writeManifestRaw(
+      repo,
+      `${JSON.stringify({ ".": "0.3.1", other: "9.9.9" }, null, 2)}\n`,
+    );
+    const head = commit(repo, "chore: extra manifest key");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
+  it("rejects nested unexpected values under a non-dot key", () => {
+    const repo = initRepo();
+    seedRelease(repo, "0.2.5");
+    const base = commit(repo, "seed");
+    writePackage(repo, "0.3.1");
+    writeManifestRaw(
+      repo,
+      `${JSON.stringify({ ".": "0.3.1", packages: { evil: "9.9.9" } }, null, 2)}\n`,
+    );
+    const head = commit(repo, "chore: nested unexpected manifest value");
 
     const result = runGuard(repo, base, head);
 

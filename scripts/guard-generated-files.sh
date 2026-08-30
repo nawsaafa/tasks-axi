@@ -37,19 +37,51 @@ violated=$(
     '
 )
 
-json_field() {
-  git show "${1}:${2}" 2>/dev/null |
-    grep -o "\"${3}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" |
-    head -n 1 |
-    sed 's/.*"\([^"]*\)"$/\1/' || true
+json_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$@"
+  elif command -v python >/dev/null 2>&1; then
+    python "$@"
+  else
+    echo "python3 is required to parse JSON manifests" >&2
+    return 1
+  fi
 }
 
-manifest_version() {
-  json_field "$1" ".release-please-manifest.json" "\\."
+# Prints the "." version when the file is valid JSON whose root object has
+# exactly that one string key. Any extra/missing/differently-named key,
+# nested non-string ".", or malformed JSON fails.
+manifest_root_version() {
+  git show "${1}:.release-please-manifest.json" | json_python -c '
+import json, sys
+raw = sys.stdin.read()
+try:
+    value = json.loads(raw)
+except Exception:
+    sys.exit(2)
+if not isinstance(value, dict):
+    sys.exit(3)
+keys = list(value.keys())
+if keys != ["."] or not isinstance(value["."], str) or value["."] == "":
+    sys.exit(3)
+sys.stdout.write(value["."])
+'
 }
 
 package_version() {
-  json_field "$1" "package.json" "version"
+  git show "${1}:package.json" | json_python -c '
+import json, sys
+try:
+    value = json.loads(sys.stdin.read())
+except Exception:
+    sys.exit(2)
+if not isinstance(value, dict):
+    sys.exit(3)
+version = value.get("version")
+if not isinstance(version, str) or version == "":
+    sys.exit(3)
+sys.stdout.write(version)
+'
 }
 
 is_authorized_manifest_correction() {
@@ -64,13 +96,15 @@ is_authorized_manifest_correction() {
          END { exit found ? 1 : 0 }' || return 1
 
   base_ref=$(git merge-base "${base_sha}" "${head_sha}" 2>/dev/null || printf '%s' "${base_sha}")
-  base_manifest=$(manifest_version "${base_ref}")
-  head_manifest=$(manifest_version "${head_sha}")
+  base_manifest=$(manifest_root_version "${base_ref}") || return 1
+  head_manifest=$(manifest_root_version "${head_sha}") || return 1
+  base_pkg=$(package_version "${base_ref}") || return 1
+  head_pkg=$(package_version "${head_sha}") || return 1
 
   [ "$base_manifest" = "$exception_base_version" ] || return 1
   [ "$head_manifest" = "$exception_head_version" ] || return 1
-  [ "$base_manifest" = "$(package_version "${base_ref}")" ] || return 1
-  [ "$head_manifest" = "$(package_version "${head_sha}")" ] || return 1
+  [ "$base_manifest" = "$base_pkg" ] || return 1
+  [ "$head_manifest" = "$head_pkg" ] || return 1
 }
 
 if [ -n "$violated" ] && is_authorized_manifest_correction; then
