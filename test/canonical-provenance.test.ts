@@ -53,7 +53,7 @@ describe("canonical fork provenance", () => {
     expect(pkg.bugs?.url).not.toContain("kunchenguid/tasks-axi");
   });
 
-  it("pins every documented install to the tag release-please actually cuts", () => {
+  it("pins every documented install to one exact immutable canonical tag", () => {
     const pkg = JSON.parse(
       readFileSync(join(root, "package.json"), "utf8"),
     ) as { version: string };

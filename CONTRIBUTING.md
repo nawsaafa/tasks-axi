@@ -40,7 +40,8 @@ See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/star
 
 ## Release and Packaging
 
-Releases are cut by release-please from Conventional Commits on `main`.
+Version bookkeeping is release-please's, driven by Conventional Commits on `main`.
+The canonical fork's current release tags (`tasks-axi-v0.3.0`, `tasks-axi-v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please, and tags always carry the `tasks-axi-` component prefix.
 The release workflow does GitHub version/release bookkeeping only: it opens the release PR and cuts the tag and GitHub release. This fork is never published to npm, so no release path may install, build for, or invoke a registry publish.
 
 The npm package intentionally ships runtime JavaScript only.

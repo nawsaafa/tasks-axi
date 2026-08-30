@@ -24,6 +24,8 @@ Pass `--archive-body` with a body replacement when the superseded body should be
 
 This canonical fork lives at [nawsaafa/tasks-axi](https://github.com/nawsaafa/tasks-axi) and follows a **no-npm publication** strategy. Install and invoke it from the Git source and tag below. Unscoped registry installs of the `tasks-axi` package name resolve the upstream npm package and must not be used.
 
+Every command below pins one exact immutable tag. Canonical-fork tags are cut by a separately authorized manual GitHub release - `tasks-axi-v0.3.1` becomes resolvable only once that release is published, the same way `tasks-axi-v0.3.0` was cut. Until then, pin the newest tag the fork actually publishes.
+
 Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format with [`npx skills`](https://github.com/vercel-labs/skills):
 
 ```sh
