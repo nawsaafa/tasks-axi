@@ -30,7 +30,11 @@ function collectRunsAndUses(
   for (const value of Object.values(record)) collectRunsAndUses(value, out);
 }
 
-const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+// Windows npm is a `.cmd` shim, which Node refuses to spawn without a shell
+// (CVE-2024-27980 hardening). Without this the child never starts, npm never
+// gets to refuse the publish, and the assertions below pass vacuously.
+const isWindows = process.platform === "win32";
+const npm = isWindows ? "npm.cmd" : "npm";
 const UNREACHABLE_REGISTRY = "http://127.0.0.1:1/";
 const publishSandboxes: string[] = [];
 
@@ -68,11 +72,16 @@ function attemptPublish(manifest: Record<string, unknown>): string {
         cwd: dir,
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        shell: isWindows,
       },
     );
     return "";
   } catch (error) {
     const failure = error as { stdout?: string; stderr?: string };
+    if (failure.stdout === undefined && failure.stderr === undefined) {
+      // npm never ran, so its output cannot be evidence of anything.
+      throw error;
+    }
     return `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
   }
 }
