@@ -1,7 +1,9 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { CANONICAL_GIT_SPEC } from "../src/skill.js";
 
@@ -26,6 +28,53 @@ function collectRunsAndUses(
   if (typeof record.run === "string") out.run.push(record.run);
   if (typeof record.uses === "string") out.uses.push(record.uses);
   for (const value of Object.values(record)) collectRunsAndUses(value, out);
+}
+
+const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+const UNREACHABLE_REGISTRY = "http://127.0.0.1:1/";
+const publishSandboxes: string[] = [];
+
+afterEach(() => {
+  for (const dir of publishSandboxes.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function attemptPublish(manifest: Record<string, unknown>): string {
+  const dir = mkdtempSync(join(tmpdir(), "tasks-axi-publish-"));
+  publishSandboxes.push(dir);
+  writeFileSync(
+    join(dir, "package.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  writeFileSync(
+    join(dir, ".npmrc"),
+    `registry=${UNREACHABLE_REGISTRY}\n//127.0.0.1:1/:_authToken=test-token\n`,
+  );
+
+  try {
+    execFileSync(
+      npm,
+      [
+        "publish",
+        "--userconfig",
+        ".npmrc",
+        "--fetch-retries=0",
+        "--fetch-timeout=2000",
+        "--no-audit",
+        "--no-fund",
+      ],
+      {
+        cwd: dir,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    return "";
+  } catch (error) {
+    const failure = error as { stdout?: string; stderr?: string };
+    return `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+  }
 }
 
 describe("canonical fork provenance", () => {
@@ -121,6 +170,27 @@ describe("canonical fork provenance", () => {
     expect(resolve("prepare")).toContain(pkg.scripts.build);
     expect(pkg.scripts.build).toMatch(/\btsc\b/);
   });
+
+  it("refuses a credentialed local npm publication", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ) as Record<string, unknown> & { scripts?: unknown };
+
+    expect(pkg.private).toBe(true);
+    expect(pkg.publishConfig).toBeUndefined();
+    expect(pkg.name).toBe("tasks-axi");
+
+    const manifest = { ...pkg };
+    delete manifest.scripts;
+
+    const refused = attemptPublish(manifest);
+    expect(refused).toContain("EPRIVATE");
+    expect(refused).toMatch(/marked as private/i);
+
+    const publishable = { ...manifest };
+    delete publishable.private;
+    expect(attemptPublish(publishable)).not.toContain("EPRIVATE");
+  }, 120_000);
 
   it("keeps release-please bookkeeping on the canonical version", () => {
     const pkg = JSON.parse(
