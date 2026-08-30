@@ -34,7 +34,9 @@ describe("skill generation", () => {
   it("identifies the canonical fork and uses only Git source/tag invocation", () => {
     const md = createSkillMarkdown();
     expect(SKILL_AUTHOR).toBe("nawsaafa");
-    expect(CANONICAL_GIT_SPEC).toMatch(/^github:nawsaafa\/tasks-axi#v\d+\.\d+\.\d+$/);
+    expect(CANONICAL_GIT_SPEC).toMatch(
+      /^github:nawsaafa\/tasks-axi#tasks-axi-v\d+\.\d+\.\d+$/,
+    );
     expect(md).toContain(`github.com/${CANONICAL_OWNER_REPO}`);
     expect(md).toContain("not published to npm");
     expect(md).not.toMatch(UNSCOPED_NPX);

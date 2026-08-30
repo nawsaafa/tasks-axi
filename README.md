@@ -30,7 +30,7 @@ Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format
 npx skills add nawsaafa/tasks-axi --skill tasks-axi -g
 ```
 
-The skill teaches your agent to run tasks-axi from the canonical Git source and tag (`npx -y github:nawsaafa/tasks-axi#v0.3.1`). Node 20+ is required.
+The skill teaches your agent to run tasks-axi from the canonical Git source and tag (`npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1`). Node 20+ is required.
 
 Just ask for anything that touches the backlog - filing or dispatching work, completing a task, finding dispatchable or held work - and the agent loads the skill on its own when it recognizes the task.
 
@@ -46,7 +46,7 @@ tasks-axi is an AXI, so any capable agent can run the CLI directly with nothing 
 Just tell your agent:
 
 ```
-Execute `npx -y github:nawsaafa/tasks-axi#v0.3.1` to manage the backlog.
+Execute `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1` to manage the backlog.
 ```
 
 ### Session hook
@@ -55,7 +55,7 @@ Want the current backlog fed into every agent session as ambient context instead
 Install the CLI from the Git source and tag, then opt into the hook:
 
 ```sh
-npm install -g github:nawsaafa/tasks-axi#v0.3.1
+npm install -g github:nawsaafa/tasks-axi#tasks-axi-v0.3.1
 tasks-axi setup hooks
 ```
 

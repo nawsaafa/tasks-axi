@@ -84,7 +84,7 @@ Any argv shape other than exactly one version flag falls through to `runAxiCli`,
 ## Build / test / ship
 
 - `pnpm build` (tsc), `pnpm test` (vitest, `test/` mirrors `src/`), `pnpm lint` (eslint), `pnpm run build:skill -- --check` (CI fails if `skills/tasks-axi/SKILL.md` drifts from `src/skill.ts`).
-- The shipped skill stays **minimal** and **defers to the CLI** for all actual guidance. Frontmatter (name/description/metadata) is the discovery surface; the body only says what tasks-axi is, when to reach for it, and pointers to the canonical Git source/tag invocation (`npx -y github:nawsaafa/tasks-axi#v<version>`). Never route agents at the upstream npm package. tasks-axi CLI output is the single source of truth. Never re-duplicate CLI-owned commands, flags, or workflow steps into the skill - prefer a pointer. Never hand-edit `skills/tasks-axi/SKILL.md`; regenerate with `pnpm run build:skill`.
+- The shipped skill stays **minimal** and **defers to the CLI** for all actual guidance. Frontmatter (name/description/metadata) is the discovery surface; the body only says what tasks-axi is, when to reach for it, and pointers to the canonical Git source/tag invocation (`npx -y github:nawsaafa/tasks-axi#tasks-axi-v<version>` - release-please tags this package with its component prefix, so the bare `v<version>` ref does not exist). Never route agents at the upstream npm package. tasks-axi CLI output is the single source of truth. Never re-duplicate CLI-owned commands, flags, or workflow steps into the skill - prefer a pointer. Never hand-edit `skills/tasks-axi/SKILL.md`; regenerate with `pnpm run build:skill`.
 - This repo is no-mistakes-gated; ship through `/no-mistakes`.
 
 ### Release & packaging (mirrors the `*-axi` siblings)

@@ -15,7 +15,7 @@ The release and dependency bots are exempt so their automation keeps working, bu
 
 ## Workflow
 
-1. Fork the repo, then clone the parent repo or set your local `origin` back to the parent repo (`git@github.com:kunchenguid/tasks-axi.git`).
+1. Fork the repo, then clone the canonical fork or set your local `origin` back to it (`git@github.com:nawsaafa/tasks-axi.git`).
 2. Create a branch and make your change with tests (`test/` mirrors `src/`).
 3. Initialize or refresh the gate with your fork as the push target: `no-mistakes init --fork-url git@github.com:<you>/tasks-axi.git`.
 4. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, ...) - release-please reads them to cut releases.
@@ -41,12 +41,12 @@ See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/star
 ## Release and Packaging
 
 Releases are cut by release-please from Conventional Commits on `main`.
-When a release is created, the release workflow installs dependencies, builds, lints, tests, checks generated skill drift, and publishes with `npm publish --access public --provenance`.
+The release workflow does GitHub version/release bookkeeping only: it opens the release PR and cuts the tag and GitHub release. This fork is never published to npm, so no release path may install, build for, or invoke a registry publish.
 
 The npm package intentionally ships runtime JavaScript only.
 Keep `package.json` `files` limited to `dist/**/*.js`, `skills/tasks-axi`, `LICENSE`, and `README.md`; TypeScript declarations and source maps stay local for development.
 
-`prepack` runs `npm run build`, so `npm pack`, `npm publish`, and `npm publish --dry-run` rebuild `dist` first.
+`prepare` and `prepack` both run `npm run build`, so `npm pack` rebuilds `dist` first and a canonical Git source/tag install (`npx -y github:nawsaafa/tasks-axi#tasks-axi-v<version>`) builds the CLI on the consumer side. Never run `npm publish` from this fork.
 From a fresh clone, install dependencies with `pnpm install --frozen-lockfile` before any manual pack or publish, since that build step needs `node_modules` (this matches how CI and the release workflow install).
 Then verify the package with `npm pack --dry-run` and keep the CLI bin as `dist/bin/tasks-axi.js` so npm preserves it without warnings.
 

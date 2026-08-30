@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { CANONICAL_GIT_SPEC } from "../src/skill.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const workflowsDir = join(root, ".github", "workflows");
@@ -52,6 +53,75 @@ describe("canonical fork provenance", () => {
     expect(pkg.bugs?.url).not.toContain("kunchenguid/tasks-axi");
   });
 
+  it("pins every documented install to the tag release-please actually cuts", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ) as { version: string };
+    const config = JSON.parse(
+      readFileSync(join(root, "release-please-config.json"), "utf8"),
+    ) as {
+      "include-component-in-tag"?: boolean;
+      packages: Record<
+        string,
+        {
+          "package-name"?: string;
+          component?: string;
+          "include-component-in-tag"?: boolean;
+        }
+      >;
+    };
+
+    const entry = config.packages["."];
+    expect(entry).toBeDefined();
+    const includeComponent =
+      entry["include-component-in-tag"] ??
+      config["include-component-in-tag"] ??
+      true;
+    const component = entry.component ?? entry["package-name"];
+    expect(component).toBeDefined();
+    const tag = includeComponent
+      ? `${component}-v${pkg.version}`
+      : `v${pkg.version}`;
+
+    expect(CANONICAL_GIT_SPEC).toBe(`github:nawsaafa/tasks-axi#${tag}`);
+
+    const readme = readFileSync(join(root, "README.md"), "utf8");
+    const refs = readme.match(/github:nawsaafa\/tasks-axi#\S+/g) ?? [];
+    expect(refs.length).toBeGreaterThan(0);
+    expect([...new Set(refs.map((ref) => ref.replace(/[`).,]+$/, "")))]).toEqual([
+      CANONICAL_GIT_SPEC,
+    ]);
+  });
+
+  it("builds the CLI on a Git-source install because dist is untracked", () => {
+    const pkg = JSON.parse(
+      readFileSync(join(root, "package.json"), "utf8"),
+    ) as { scripts: Record<string, string>; bin: Record<string, string> };
+    const tsconfig = JSON.parse(
+      readFileSync(join(root, "tsconfig.json"), "utf8"),
+    ) as { compilerOptions: { outDir: string } };
+    const ignored = readFileSync(join(root, ".gitignore"), "utf8")
+      .split("\n")
+      .map((line) => line.trim().replace(/\/$/, ""));
+
+    const outDir = tsconfig.compilerOptions.outDir;
+    expect(ignored).toContain(outDir);
+    expect(pkg.bin["tasks-axi"].startsWith(`${outDir}/`)).toBe(true);
+
+    const resolve = (script: string, seen = new Set<string>()): string[] => {
+      if (seen.has(script)) return [];
+      seen.add(script);
+      const command = pkg.scripts[script];
+      if (command === undefined) return [];
+      const nested = [...command.matchAll(/(?:npm|pnpm|yarn)\s+run\s+(\S+)/g)];
+      if (nested.length === 0) return [command];
+      return nested.flatMap(([, name]) => resolve(name, seen));
+    };
+
+    expect(resolve("prepare")).toContain(pkg.scripts.build);
+    expect(pkg.scripts.build).toMatch(/\btsc\b/);
+  });
+
   it("keeps release-please bookkeeping on the canonical version", () => {
     const pkg = JSON.parse(
       readFileSync(join(root, "package.json"), "utf8"),
@@ -66,7 +136,7 @@ describe("canonical fork provenance", () => {
   it("documents Git source/tag install paths and no-npm publication", () => {
     const readme = readFileSync(join(root, "README.md"), "utf8");
     expect(readme).toContain("nawsaafa/tasks-axi");
-    expect(readme).toContain("github:nawsaafa/tasks-axi#v");
+    expect(readme).toContain(CANONICAL_GIT_SPEC);
     expect(readme).toMatch(/no-npm publication/i);
     expect(readme).not.toContain("kunchenguid/tasks-axi");
     expect(readme).not.toContain("npmjs.com/package/tasks-axi");
