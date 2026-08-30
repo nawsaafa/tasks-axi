@@ -37,13 +37,11 @@ violated=$(
     '
 )
 
-json_python() {
-  if command -v python3 >/dev/null 2>&1; then
-    python3 "$@"
-  elif command -v python >/dev/null 2>&1; then
-    python "$@"
+json_node() {
+  if command -v node >/dev/null 2>&1; then
+    node "$@"
   else
-    echo "python3 is required to parse JSON manifests" >&2
+    echo "node is required to parse JSON manifests" >&2
     return 1
   fi
 }
@@ -52,35 +50,40 @@ json_python() {
 # exactly that one string key. Any extra/missing/differently-named key,
 # nested non-string ".", or malformed JSON fails.
 manifest_root_version() {
-  git show "${1}:.release-please-manifest.json" | json_python -c '
-import json, sys
-raw = sys.stdin.read()
-try:
-    value = json.loads(raw)
-except Exception:
-    sys.exit(2)
-if not isinstance(value, dict):
-    sys.exit(3)
-keys = list(value.keys())
-if keys != ["."] or not isinstance(value["."], str) or value["."] == "":
-    sys.exit(3)
-sys.stdout.write(value["."])
+  git show "${1}:.release-please-manifest.json" | json_node -e '
+let value;
+try {
+  value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+} catch (error) {
+  process.exit(2);
+}
+if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  process.exit(3);
+}
+const keys = Object.keys(value);
+if (keys.length !== 1 || keys[0] !== "." || typeof value["."] !== "string" || value["."] === "") {
+  process.exit(3);
+}
+process.stdout.write(value["."]);
 '
 }
 
 package_version() {
-  git show "${1}:package.json" | json_python -c '
-import json, sys
-try:
-    value = json.loads(sys.stdin.read())
-except Exception:
-    sys.exit(2)
-if not isinstance(value, dict):
-    sys.exit(3)
-version = value.get("version")
-if not isinstance(version, str) or version == "":
-    sys.exit(3)
-sys.stdout.write(version)
+  git show "${1}:package.json" | json_node -e '
+let value;
+try {
+  value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+} catch (error) {
+  process.exit(2);
+}
+if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  process.exit(3);
+}
+const version = value.version;
+if (typeof version !== "string" || version === "") {
+  process.exit(3);
+}
+process.stdout.write(version);
 '
 }
 

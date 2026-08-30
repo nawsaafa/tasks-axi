@@ -287,6 +287,57 @@ describe("guard-generated-files workflow helper", () => {
     expect(result.stderr).toContain(".release-please-manifest.json");
   });
 
+  it("rejects an extra root key on the base manifest even when the head is authorized", () => {
+    const repo = initRepo();
+    writeFileSync(join(repo, "README.md"), "seed\n");
+    writePackage(repo, "0.2.5");
+    writeManifestRaw(
+      repo,
+      `${JSON.stringify({ ".": "0.2.5", other: "9.9.9" }, null, 2)}\n`,
+    );
+    const base = commit(repo, "seed");
+    writeRelease(repo, "0.3.1");
+    const head = commit(repo, "chore: correction from an extra-key base");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
+  it("rejects nested unexpected values on the base manifest even when the head is authorized", () => {
+    const repo = initRepo();
+    writeFileSync(join(repo, "README.md"), "seed\n");
+    writePackage(repo, "0.2.5");
+    writeManifestRaw(
+      repo,
+      `${JSON.stringify({ ".": "0.2.5", packages: { evil: "9.9.9" } }, null, 2)}\n`,
+    );
+    const base = commit(repo, "seed");
+    writeRelease(repo, "0.3.1");
+    const head = commit(repo, "chore: correction from a nested-value base");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
+  it("rejects a malformed JSON base manifest even when the head is authorized", () => {
+    const repo = initRepo();
+    writeFileSync(join(repo, "README.md"), "seed\n");
+    writePackage(repo, "0.2.5");
+    writeManifestRaw(repo, '{\n  ".": "0.2.5"\n');
+    const base = commit(repo, "seed");
+    writeRelease(repo, "0.3.1");
+    const head = commit(repo, "chore: correction from a truncated base");
+
+    const result = runGuard(repo, base, head);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(".release-please-manifest.json");
+  });
+
   it("fails closed when the diff range is invalid", () => {
     const repo = initRepo();
     writeFileSync(join(repo, "README.md"), "seed\n");
