@@ -26,4 +26,6 @@ Get every command, flag, and workflow from the live CLI - it is the single sourc
 - `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1 --help` - global usage
 - `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1 <command> --help` - per-command usage
 
+Canonical-fork tags are cut by a separately authorized manual GitHub release - `tasks-axi-v0.3.1` becomes resolvable only once that release is published.
+
 If the CLI prints a follow-up starting with `tasks-axi`, rerun it with the same Git source/tag prefix instead of an unscoped registry package name.

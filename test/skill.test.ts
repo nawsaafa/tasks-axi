@@ -5,7 +5,9 @@ import {
   CANONICAL_GIT_SPEC,
   CANONICAL_INVOKE,
   CANONICAL_OWNER_REPO,
+  CANONICAL_TAG,
   createSkillMarkdown,
+  PENDING_RELEASE_NOTE,
   SKILL_AUTHOR,
   SKILL_DESCRIPTION,
 } from "../src/skill.js";
@@ -43,6 +45,24 @@ describe("skill generation", () => {
     expect(md).not.toMatch(UPSTREAM_PACKAGE);
     expect(md).not.toContain("Kun Chen");
     expect(md).not.toContain("kunchenguid");
+  });
+
+  it("carries the pending-release caveat alongside its pinned commands", () => {
+    const committed = normalizeLineEndings(
+      readFileSync(
+        new URL("../skills/tasks-axi/SKILL.md", import.meta.url),
+        "utf8",
+      ),
+    );
+
+    expect(PENDING_RELEASE_NOTE).toContain(CANONICAL_TAG);
+    expect(PENDING_RELEASE_NOTE).toMatch(/separately authorized manual GitHub release/);
+
+    const lastCommand = committed.lastIndexOf(`\`${CANONICAL_INVOKE} <command> --help\``);
+    const caveat = committed.indexOf(PENDING_RELEASE_NOTE);
+
+    expect(lastCommand).toBeGreaterThan(-1);
+    expect(caveat).toBeGreaterThan(lastCommand);
   });
 
   it("does not bake CLI-owned command, flag, or workflow text", () => {

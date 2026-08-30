@@ -14,6 +14,8 @@ export const CANONICAL_OWNER_REPO = "nawsaafa/tasks-axi";
 export const CANONICAL_TAG = `tasks-axi-v${VERSION}`;
 export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`;
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
+export const PENDING_RELEASE_NOTE =
+  `Canonical-fork tags are cut by a separately authorized manual GitHub release - \`${CANONICAL_TAG}\` becomes resolvable only once that release is published.`;
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses
@@ -62,6 +64,8 @@ Get every command, flag, and workflow from the live CLI - it is the single sourc
 - \`${CANONICAL_INVOKE}\` - dashboard of the current backlog
 - \`${CANONICAL_INVOKE} --help\` - global usage
 - \`${CANONICAL_INVOKE} <command> --help\` - per-command usage
+
+${PENDING_RELEASE_NOTE}
 
 If the CLI prints a follow-up starting with \`tasks-axi\`, rerun it with the same Git source/tag prefix instead of an unscoped registry package name.
 `;
