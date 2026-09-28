@@ -46,10 +46,7 @@ function commit(repo: string, message: string): string {
 }
 
 function writeManifest(repo: string, version: string): void {
-  writeManifestRaw(
-    repo,
-    `${JSON.stringify({ ".": version }, null, 2)}\n`,
-  );
+  writeManifestRaw(repo, `${JSON.stringify({ ".": version }, null, 2)}\n`);
 }
 
 function writeManifestRaw(repo: string, contents: string): void {
@@ -244,7 +241,7 @@ describe("guard-generated-files workflow helper", () => {
     seedRelease(repo, "0.2.5");
     const base = commit(repo, "seed");
     writePackage(repo, "0.3.1");
-    writeManifestRaw(repo, "{\n  \".\": \"0.3.1\"\n");
+    writeManifestRaw(repo, '{\n  ".": "0.3.1"\n');
     const head = commit(repo, "chore: truncated manifest");
 
     const result = runGuard(repo, base, head);

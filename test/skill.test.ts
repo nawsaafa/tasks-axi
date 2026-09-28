@@ -17,7 +17,8 @@ function normalizeLineEndings(value: string): string {
 }
 
 const UNSCOPED_NPX = /npx(?:\s+-y)?\s+tasks-axi(?:\s|$|`)/;
-const UPSTREAM_PACKAGE = /kunchenguid\/tasks-axi|npmjs\.com\/package\/tasks-axi/;
+const UPSTREAM_PACKAGE =
+  /kunchenguid\/tasks-axi|npmjs\.com\/package\/tasks-axi/;
 
 describe("skill generation", () => {
   it("keeps frontmatter identity and defers instructions to the CLI", () => {
@@ -56,9 +57,13 @@ describe("skill generation", () => {
     );
 
     expect(PENDING_RELEASE_NOTE).toContain(CANONICAL_TAG);
-    expect(PENDING_RELEASE_NOTE).toMatch(/separately authorized manual GitHub release/);
+    expect(PENDING_RELEASE_NOTE).toMatch(
+      /separately authorized manual GitHub release/,
+    );
 
-    const lastCommand = committed.lastIndexOf(`\`${CANONICAL_INVOKE} <command> --help\``);
+    const lastCommand = committed.lastIndexOf(
+      `\`${CANONICAL_INVOKE} <command> --help\``,
+    );
     const caveat = committed.indexOf(PENDING_RELEASE_NOTE);
 
     expect(lastCommand).toBeGreaterThan(-1);

@@ -14,8 +14,7 @@ export const CANONICAL_OWNER_REPO = "nawsaafa/tasks-axi";
 export const CANONICAL_TAG = `tasks-axi-v${VERSION}`;
 export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`;
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
-export const PENDING_RELEASE_NOTE =
-  `Canonical-fork tags are cut by a separately authorized manual GitHub release - \`${CANONICAL_TAG}\` becomes resolvable only once that release is published.`;
+export const PENDING_RELEASE_NOTE = `Canonical-fork tags are cut by a separately authorized manual GitHub release - \`${CANONICAL_TAG}\` becomes resolvable only once that release is published.`;
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses

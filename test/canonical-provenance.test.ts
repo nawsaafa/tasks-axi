@@ -1,5 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,8 +16,7 @@ import { CANONICAL_GIT_SPEC } from "../src/skill.js";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const workflowsDir = join(root, ".github", "workflows");
 
-const PUBLISH_RUN =
-  /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
+const PUBLISH_RUN = /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
 const PUBLISH_ACTION =
   /(?:^|\/)(?:npm-publish|JS-DevTools\/npm-publish)(?:@|$)/i;
 const REGISTRY_AUTH_ENV =
@@ -58,7 +63,10 @@ function collectWorkflowNodes(node: unknown, out: Collected): void {
 
 function collectWorkflow(name: string): Collected {
   const found = emptyCollected();
-  collectWorkflowNodes(parse(readFileSync(join(workflowsDir, name), "utf8")), found);
+  collectWorkflowNodes(
+    parse(readFileSync(join(workflowsDir, name), "utf8")),
+    found,
+  );
   return found;
 }
 
@@ -240,9 +248,9 @@ describe("canonical fork provenance", () => {
     const readme = readFileSync(join(root, "README.md"), "utf8");
     const refs = readme.match(/github:nawsaafa\/tasks-axi#\S+/g) ?? [];
     expect(refs.length).toBeGreaterThan(0);
-    expect([...new Set(refs.map((ref) => ref.replace(/[`).,]+$/, "")))]).toEqual([
-      CANONICAL_GIT_SPEC,
-    ]);
+    expect([
+      ...new Set(refs.map((ref) => ref.replace(/[`).,]+$/, ""))),
+    ]).toEqual([CANONICAL_GIT_SPEC]);
   });
 
   it("builds the CLI on a Git-source install because dist is untracked", () => {
