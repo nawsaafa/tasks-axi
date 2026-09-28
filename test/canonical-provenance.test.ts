@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,20 +14,92 @@ const PUBLISH_RUN =
   /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
 const PUBLISH_ACTION =
   /(?:^|\/)(?:npm-publish|JS-DevTools\/npm-publish)(?:@|$)/i;
+const REGISTRY_AUTH_ENV =
+  /^(?:node_auth_token|npm_token|npm_config_registry|npm_config__auth|npm_config__authtoken|npm_config_.*_authtoken)$/i;
 
-function collectRunsAndUses(
-  node: unknown,
-  out: { run: string[]; uses: string[] },
-): void {
+interface Collected {
+  run: string[];
+  uses: string[];
+  with: Record<string, unknown>[];
+  env: Record<string, unknown>[];
+  permissions: unknown[];
+}
+
+function emptyCollected(): Collected {
+  return { run: [], uses: [], with: [], env: [], permissions: [] };
+}
+
+function collectWorkflowNodes(node: unknown, out: Collected): void {
   if (node == null || typeof node !== "object") return;
   if (Array.isArray(node)) {
-    for (const item of node) collectRunsAndUses(item, out);
+    for (const item of node) collectWorkflowNodes(item, out);
     return;
   }
   const record = node as Record<string, unknown>;
   if (typeof record.run === "string") out.run.push(record.run);
   if (typeof record.uses === "string") out.uses.push(record.uses);
-  for (const value of Object.values(record)) collectRunsAndUses(value, out);
+  if (
+    record.with != null &&
+    typeof record.with === "object" &&
+    !Array.isArray(record.with)
+  ) {
+    out.with.push(record.with as Record<string, unknown>);
+  }
+  if (
+    record.env != null &&
+    typeof record.env === "object" &&
+    !Array.isArray(record.env)
+  ) {
+    out.env.push(record.env as Record<string, unknown>);
+  }
+  if ("permissions" in record) out.permissions.push(record.permissions);
+  for (const value of Object.values(record)) collectWorkflowNodes(value, out);
+}
+
+function collectWorkflow(name: string): Collected {
+  const found = emptyCollected();
+  collectWorkflowNodes(parse(readFileSync(join(workflowsDir, name), "utf8")), found);
+  return found;
+}
+
+// Every shape that would let a workflow authenticate against a package
+// registry, read off the parsed document rather than the file text.
+function publishCapabilityFailures(name: string, found: Collected): string[] {
+  const failures: string[] = [];
+
+  for (const run of found.run) {
+    if (PUBLISH_RUN.test(run)) failures.push(`${name} run: ${run.trim()}`);
+  }
+  for (const uses of found.uses) {
+    if (PUBLISH_ACTION.test(uses)) failures.push(`${name} uses: ${uses}`);
+  }
+  for (const permissions of found.permissions) {
+    if (typeof permissions === "string") {
+      if (permissions === "write-all") {
+        failures.push(`${name} permissions: ${permissions}`);
+      }
+      continue;
+    }
+    if (permissions == null || typeof permissions !== "object") continue;
+    const idToken = (permissions as Record<string, unknown>)["id-token"];
+    if (idToken !== undefined && idToken !== "none") {
+      failures.push(`${name} permissions.id-token: ${String(idToken)}`);
+    }
+  }
+  for (const inputs of found.with) {
+    for (const [key, value] of Object.entries(inputs)) {
+      if (key.toLowerCase() === "registry-url") {
+        failures.push(`${name} with.${key}: ${String(value)}`);
+      }
+    }
+  }
+  for (const env of found.env) {
+    for (const key of Object.keys(env)) {
+      if (REGISTRY_AUTH_ENV.test(key)) failures.push(`${name} env.${key}`);
+    }
+  }
+
+  return failures;
 }
 
 // Windows npm is a `.cmd` shim, which Node refuses to spawn without a shell
@@ -38,13 +110,32 @@ const npm = isWindows ? "npm.cmd" : "npm";
 const UNREACHABLE_REGISTRY = "http://127.0.0.1:1/";
 const publishSandboxes: string[] = [];
 
+// npm resolves config from the command line first, then the environment, then
+// npmrc files. The `--registry` flag below therefore cannot be redirected, and
+// stripping every `npm_config_*`/token variable keeps an ambient credential
+// from reaching whatever the child does contact.
+const PUBLISH_CHILD_ENV: Record<string, string> = (() => {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    if (/^npm_config_/i.test(key)) continue;
+    if (/^(?:npm_token|node_auth_token|npm_auth_token)$/i.test(key)) continue;
+    env[key] = value;
+  }
+  env.npm_config_registry = UNREACHABLE_REGISTRY;
+  return env;
+})();
+
 afterEach(() => {
   for (const dir of publishSandboxes.splice(0)) {
     rmSync(dir, { recursive: true, force: true });
   }
 });
 
-function attemptPublish(manifest: Record<string, unknown>): string {
+function attemptPublish(manifest: Record<string, unknown>): {
+  status: number | null;
+  output: string;
+} {
   const dir = mkdtempSync(join(tmpdir(), "tasks-axi-publish-"));
   publishSandboxes.push(dir);
   writeFileSync(
@@ -56,34 +147,37 @@ function attemptPublish(manifest: Record<string, unknown>): string {
     `registry=${UNREACHABLE_REGISTRY}\n//127.0.0.1:1/:_authToken=test-token\n`,
   );
 
-  try {
-    execFileSync(
-      npm,
-      [
-        "publish",
-        "--userconfig",
-        ".npmrc",
-        "--fetch-retries=0",
-        "--fetch-timeout=2000",
-        "--no-audit",
-        "--no-fund",
-      ],
-      {
-        cwd: dir,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-        shell: isWindows,
-      },
-    );
-    return "";
-  } catch (error) {
-    const failure = error as { stdout?: string; stderr?: string };
-    if (failure.stdout === undefined && failure.stderr === undefined) {
-      // npm never ran, so its output cannot be evidence of anything.
-      throw error;
-    }
-    return `${failure.stdout ?? ""}${failure.stderr ?? ""}`;
+  const result = spawnSync(
+    npm,
+    [
+      "publish",
+      `--registry=${UNREACHABLE_REGISTRY}`,
+      "--userconfig",
+      ".npmrc",
+      "--fetch-retries=0",
+      "--fetch-timeout=2000",
+      "--no-audit",
+      "--no-fund",
+    ],
+    {
+      cwd: dir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: isWindows,
+      env: PUBLISH_CHILD_ENV,
+    },
+  );
+
+  if (result.error) throw result.error;
+  if (result.stdout == null && result.stderr == null) {
+    // npm never ran, so its output cannot be evidence of anything.
+    throw new Error("npm publish produced no output; the child never started");
   }
+
+  return {
+    status: result.status,
+    output: `${result.stdout ?? ""}${result.stderr ?? ""}`,
+  };
 }
 
 describe("canonical fork provenance", () => {
@@ -193,12 +287,19 @@ describe("canonical fork provenance", () => {
     delete manifest.scripts;
 
     const refused = attemptPublish(manifest);
-    expect(refused).toContain("EPRIVATE");
-    expect(refused).toMatch(/marked as private/i);
+    expect(refused.status).not.toBe(0);
+    expect(refused.output).toContain("EPRIVATE");
+    expect(refused.output).toMatch(/marked as private/i);
 
     const publishable = { ...manifest };
     delete publishable.private;
-    expect(attemptPublish(publishable)).not.toContain("EPRIVATE");
+    const attempted = attemptPublish(publishable);
+    expect(attempted.output).not.toContain("EPRIVATE");
+    // Without `private` npm gets past its own refusal and tries the registry,
+    // which is pinned to a dead loopback port, so nothing can be uploaded.
+    expect(attempted.status).not.toBe(0);
+    expect(attempted.output).toContain(UNREACHABLE_REGISTRY);
+    expect(attempted.output).not.toContain("registry.npmjs.org");
   }, 120_000);
 
   it("keeps release-please bookkeeping on the canonical version", () => {
@@ -225,46 +326,27 @@ describe("canonical fork provenance", () => {
 });
 
 describe("no-npm release enforcement", () => {
-  it("has no active npm-publish command or action in GitHub workflows", () => {
+  it("has no publish-capable command, action, permission, or credential in GitHub workflows", () => {
     const files = readdirSync(workflowsDir).filter((name) =>
       name.endsWith(".yml"),
     );
     expect(files).toContain("release-please.yml");
 
-    const failures: string[] = [];
-    for (const name of files) {
-      const doc = parse(readFileSync(join(workflowsDir, name), "utf8"));
-      const found = { run: [] as string[], uses: [] as string[] };
-      collectRunsAndUses(doc, found);
-
-      for (const run of found.run) {
-        if (PUBLISH_RUN.test(run)) {
-          failures.push(`${name} run: ${run.trim()}`);
-        }
-      }
-      for (const uses of found.uses) {
-        if (PUBLISH_ACTION.test(uses)) {
-          failures.push(`${name} uses: ${uses}`);
-        }
-      }
-    }
+    const failures = files.flatMap((name) =>
+      publishCapabilityFailures(name, collectWorkflow(name)),
+    );
 
     expect(failures).toEqual([]);
   });
 
   it("keeps release_created paths incapable of npm publication", () => {
-    const source = readFileSync(
-      join(workflowsDir, "release-please.yml"),
-      "utf8",
-    );
-    const doc = parse(source);
-    const found = { run: [] as string[], uses: [] as string[] };
-    collectRunsAndUses(doc, found);
+    const found = collectWorkflow("release-please.yml");
 
-    expect(found.uses.some((uses) => uses.includes("googleapis/release-please-action"))).toBe(true);
-    expect(found.run.filter((run) => PUBLISH_RUN.test(run))).toEqual([]);
-    expect(found.uses.filter((uses) => PUBLISH_ACTION.test(uses))).toEqual([]);
-    expect(source).not.toMatch(/registry-url:\s*["']https:\/\/registry\.npmjs\.org["']/);
-    expect(source).not.toMatch(/id-token:\s*write/);
+    expect(
+      found.uses.some((uses) =>
+        uses.includes("googleapis/release-please-action"),
+      ),
+    ).toBe(true);
+    expect(publishCapabilityFailures("release-please.yml", found)).toEqual([]);
   });
 });
