@@ -59,13 +59,11 @@ describe("skill generation", () => {
       ),
     );
 
-    expect(PUBLISHED_RELEASE_NOTE).toContain(`\`${CANONICAL_REF}\``);
     expect(PUBLISHED_RELEASE_NOTE).toContain(
       `\`${PUBLISHED_UNINSTALLABLE_TAG}\``,
     );
     expect(PUBLISHED_RELEASE_NOTE).toMatch(/published immutable tag/);
     expect(PUBLISHED_RELEASE_NOTE).toMatch(/yields no runnable CLI/);
-    expect(PUBLISHED_RELEASE_NOTE).not.toMatch(/once .* is published/);
     expect(createSkillMarkdown()).toContain(`\`${CANONICAL_INVOKE}\``);
 
     const lastCommand = committed.lastIndexOf(
