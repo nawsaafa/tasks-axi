@@ -27,7 +27,7 @@ The release and dependency bots are exempt so their automation keeps working, bu
    ```
 
 6. Run `no-mistakes` to attach to the pipeline, watch findings, and auto-fix or review as needed.
-7. Once the pipeline passes, it pushes the branch to your fork and opens the PR against this parent repo for you.
+7. Once the pipeline passes, it pushes the branch to your fork and opens the PR against the canonical fork (`nawsaafa/tasks-axi`) for you.
 
 See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/start-here/quick-start/) for the full first-run walkthrough.
 
