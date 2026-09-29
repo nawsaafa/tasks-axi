@@ -24,7 +24,7 @@ Pass `--archive-body` with a body replacement when the superseded body should be
 
 This canonical fork lives at [nawsaafa/tasks-axi](https://github.com/nawsaafa/tasks-axi) and follows a **no-npm publication** strategy. Install and invoke it from the Git source ref below. Unscoped registry installs of the `tasks-axi` package name resolve the upstream npm package and must not be used.
 
-Every command below resolves the default branch rather than an immutable tag. `v0.3.0` is published but **not installable**: it was cut manually as a bare tag on commit `743be9e`, whose `package.json` has no `prepare` script, so a Git-source install from it builds nothing and leaves no CLI to run. `main` carries the build step and becomes runnable once the correction lands on it. `v0.3.1` becomes the documented immutable ref once its separately authorized release is published.
+Every command below resolves the published, immutable `v0.3.1` tag. `v0.3.0` is published but **not installable**: it was cut manually as a bare tag on commit `743be9e`, whose `package.json` has no `prepare` script, so a Git-source install from it builds nothing and leaves no CLI to run. Do not use it. Both `main` and `v0.3.1` report version `0.3.1`, so `--version` is not source provenance; verify the peeled tag and the target/tree/archive hashes recorded in the GitHub release when provenance matters.
 
 Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format with [`npx skills`](https://github.com/vercel-labs/skills):
 
@@ -32,7 +32,7 @@ Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format
 npx skills add nawsaafa/tasks-axi --skill tasks-axi -g
 ```
 
-The skill teaches your agent to run tasks-axi from the canonical Git source ref (`npx -y github:nawsaafa/tasks-axi#main`). Node 20+ is required.
+The skill teaches your agent to run tasks-axi from the canonical Git source ref (`npx -y github:nawsaafa/tasks-axi#v0.3.1`). Node 20+ is required.
 
 Just ask for anything that touches the backlog - filing or dispatching work, completing a task, finding dispatchable or held work - and the agent loads the skill on its own when it recognizes the task.
 
@@ -48,7 +48,7 @@ tasks-axi is an AXI, so any capable agent can run the CLI directly with nothing 
 Just tell your agent:
 
 ```
-Execute `npx -y github:nawsaafa/tasks-axi#main` to manage the backlog.
+Execute `npx -y github:nawsaafa/tasks-axi#v0.3.1` to manage the backlog.
 ```
 
 ### Session hook
@@ -57,7 +57,7 @@ Want the current backlog fed into every agent session as ambient context instead
 Install the CLI from the Git source ref, then opt into the hook:
 
 ```sh
-npm install -g github:nawsaafa/tasks-axi#main
+npm install -g github:nawsaafa/tasks-axi#v0.3.1
 tasks-axi setup hooks
 ```
 
