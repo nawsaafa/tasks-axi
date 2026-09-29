@@ -1,6 +1,4 @@
 import { DESCRIPTION } from "./cli.js";
-import { VERSION } from "./version.js";
-
 // Trigger string agents match against to auto-load the skill. Terse and
 // outcome-focused so it fires on "manage the backlog / track tasks" intents.
 export const SKILL_DESCRIPTION =
@@ -11,10 +9,11 @@ export const SKILL_DESCRIPTION =
   "on completion, finding dispatchable or held work, or trimming the Done list.";
 
 export const CANONICAL_OWNER_REPO = "nawsaafa/tasks-axi";
-export const CANONICAL_TAG = `tasks-axi-v${VERSION}`;
+export const CANONICAL_TAG = "v0.3.0";
 export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`;
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
-export const PENDING_RELEASE_NOTE = `Canonical-fork tags are cut by a separately authorized manual GitHub release - \`${CANONICAL_TAG}\` becomes resolvable only once that release is published.`;
+export const PENDING_RELEASE_NOTE =
+  "The documented ref changes to `v0.3.1` once its separately authorized release is published.";
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses

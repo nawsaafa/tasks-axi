@@ -22,10 +22,10 @@ Use tasks-axi whenever a task touches the backlog: filing or dispatching work, m
 
 Get every command, flag, and workflow from the live CLI - it is the single source of truth:
 
-- `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1` - dashboard of the current backlog
-- `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1 --help` - global usage
-- `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1 <command> --help` - per-command usage
+- `npx -y github:nawsaafa/tasks-axi#v0.3.0` - dashboard of the current backlog
+- `npx -y github:nawsaafa/tasks-axi#v0.3.0 --help` - global usage
+- `npx -y github:nawsaafa/tasks-axi#v0.3.0 <command> --help` - per-command usage
 
-Canonical-fork tags are cut by a separately authorized manual GitHub release - `tasks-axi-v0.3.1` becomes resolvable only once that release is published.
+The documented ref changes to `v0.3.1` once its separately authorized release is published.
 
 If the CLI prints a follow-up starting with `tasks-axi`, rerun it with the same Git source/tag prefix instead of an unscoped registry package name.

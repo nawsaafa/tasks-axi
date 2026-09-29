@@ -11,9 +11,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { CANONICAL_GIT_SPEC } from "../src/skill.js";
+import { CANONICAL_GIT_SPEC, CANONICAL_TAG } from "../src/skill.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+const PUBLISHED_CANONICAL_TAG = "v0.3.0";
 const workflowsDir = join(root, ".github", "workflows");
 
 const PUBLISH_RUN = /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
@@ -217,33 +218,13 @@ describe("canonical fork provenance", () => {
     const pkg = JSON.parse(
       readFileSync(join(root, "package.json"), "utf8"),
     ) as { version: string };
-    const config = JSON.parse(
-      readFileSync(join(root, "release-please-config.json"), "utf8"),
-    ) as {
-      "include-component-in-tag"?: boolean;
-      packages: Record<
-        string,
-        {
-          "package-name"?: string;
-          component?: string;
-          "include-component-in-tag"?: boolean;
-        }
-      >;
-    };
-
-    const entry = config.packages["."];
-    expect(entry).toBeDefined();
-    const includeComponent =
-      entry["include-component-in-tag"] ??
-      config["include-component-in-tag"] ??
-      true;
-    const component = entry.component ?? entry["package-name"];
-    expect(component).toBeDefined();
-    const tag = includeComponent
-      ? `${component}-v${pkg.version}`
-      : `v${pkg.version}`;
-
-    expect(CANONICAL_GIT_SPEC).toBe(`github:nawsaafa/tasks-axi#${tag}`);
+    expect(CANONICAL_TAG).toBe(PUBLISHED_CANONICAL_TAG);
+    expect(CANONICAL_GIT_SPEC).toBe(
+      `github:nawsaafa/tasks-axi#${PUBLISHED_CANONICAL_TAG}`,
+    );
+    expect(CANONICAL_GIT_SPEC).not.toContain(
+      `github:nawsaafa/tasks-axi#tasks-axi-v${pkg.version}`,
+    );
 
     const readme = readFileSync(join(root, "README.md"), "utf8");
     const refs = readme.match(/github:nawsaafa\/tasks-axi#\S+/g) ?? [];

@@ -24,7 +24,7 @@ Pass `--archive-body` with a body replacement when the superseded body should be
 
 This canonical fork lives at [nawsaafa/tasks-axi](https://github.com/nawsaafa/tasks-axi) and follows a **no-npm publication** strategy. Install and invoke it from the Git source and tag below. Unscoped registry installs of the `tasks-axi` package name resolve the upstream npm package and must not be used.
 
-Each `github:`-qualified command below pins one exact immutable tag; the `npx skills add` command is not tag-pinned and resolves the default branch. Canonical-fork tags are cut by a separately authorized manual GitHub release - `tasks-axi-v0.3.1` becomes resolvable only once that release is published, the same way `tasks-axi-v0.3.0` was cut.
+Each `github:`-qualified command below pins one exact immutable tag; the `npx skills add` command is not tag-pinned and resolves the default branch. The currently published `v0.3.0` ref is used below; `v0.3.1` becomes the documented ref once its separately authorized release is published.
 
 Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format with [`npx skills`](https://github.com/vercel-labs/skills):
 
@@ -32,7 +32,7 @@ Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format
 npx skills add nawsaafa/tasks-axi --skill tasks-axi -g
 ```
 
-The skill teaches your agent to run tasks-axi from the canonical Git source and tag (`npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1`). Node 20+ is required.
+The skill teaches your agent to run tasks-axi from the canonical Git source and tag (`npx -y github:nawsaafa/tasks-axi#v0.3.0`). Node 20+ is required.
 
 Just ask for anything that touches the backlog - filing or dispatching work, completing a task, finding dispatchable or held work - and the agent loads the skill on its own when it recognizes the task.
 
@@ -48,7 +48,7 @@ tasks-axi is an AXI, so any capable agent can run the CLI directly with nothing 
 Just tell your agent:
 
 ```
-Execute `npx -y github:nawsaafa/tasks-axi#tasks-axi-v0.3.1` to manage the backlog.
+Execute `npx -y github:nawsaafa/tasks-axi#v0.3.0` to manage the backlog.
 ```
 
 ### Session hook
@@ -57,7 +57,7 @@ Want the current backlog fed into every agent session as ambient context instead
 Install the CLI from the Git source and tag, then opt into the hook:
 
 ```sh
-npm install -g github:nawsaafa/tasks-axi#tasks-axi-v0.3.1
+npm install -g github:nawsaafa/tasks-axi#v0.3.0
 tasks-axi setup hooks
 ```
 
