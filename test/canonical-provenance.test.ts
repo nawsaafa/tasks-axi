@@ -11,10 +11,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { CANONICAL_GIT_SPEC, CANONICAL_TAG } from "../src/skill.js";
+import { CANONICAL_GIT_SPEC, CANONICAL_REF } from "../src/skill.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const PUBLISHED_CANONICAL_TAG = "v0.3.0";
+const DOCUMENTED_CANONICAL_REF = "main";
+const UNINSTALLABLE_PUBLISHED_TAG = "v0.3.0";
 const workflowsDir = join(root, ".github", "workflows");
 
 const PUBLISH_RUN = /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
@@ -214,16 +215,19 @@ describe("canonical fork provenance", () => {
     expect(pkg.bugs?.url).not.toContain("kunchenguid/tasks-axi");
   });
 
-  it("pins every documented install to one exact immutable canonical tag", () => {
+  it("points every documented install at the one documented canonical ref", () => {
     const pkg = JSON.parse(
       readFileSync(join(root, "package.json"), "utf8"),
     ) as { version: string };
-    expect(CANONICAL_TAG).toBe(PUBLISHED_CANONICAL_TAG);
+    expect(CANONICAL_REF).toBe(DOCUMENTED_CANONICAL_REF);
     expect(CANONICAL_GIT_SPEC).toBe(
-      `github:nawsaafa/tasks-axi#${PUBLISHED_CANONICAL_TAG}`,
+      `github:nawsaafa/tasks-axi#${DOCUMENTED_CANONICAL_REF}`,
     );
     expect(CANONICAL_GIT_SPEC).not.toContain(
       `github:nawsaafa/tasks-axi#tasks-axi-v${pkg.version}`,
+    );
+    expect(CANONICAL_GIT_SPEC).not.toContain(
+      `#${UNINSTALLABLE_PUBLISHED_TAG}`,
     );
 
     const readme = readFileSync(join(root, "README.md"), "utf8");

@@ -5,10 +5,11 @@ import {
   CANONICAL_GIT_SPEC,
   CANONICAL_INVOKE,
   CANONICAL_OWNER_REPO,
-  CANONICAL_TAG,
+  CANONICAL_REF,
   createSkillMarkdown,
   PENDING_RELEASE_NOTE,
   PENDING_RELEASE_TAG,
+  PUBLISHED_UNINSTALLABLE_TAG,
   SKILL_AUTHOR,
   SKILL_DESCRIPTION,
 } from "../src/skill.js";
@@ -35,13 +36,14 @@ describe("skill generation", () => {
     expect(md).toContain(`\`${CANONICAL_INVOKE} <command> --help\``);
   });
 
-  it("identifies the canonical fork and uses only Git source/tag invocation", () => {
+  it("identifies the canonical fork and uses only Git source invocation", () => {
     const md = createSkillMarkdown();
     expect(SKILL_AUTHOR).toBe("nawsaafa");
-    expect(CANONICAL_GIT_SPEC).toBe("github:nawsaafa/tasks-axi#v0.3.0");
+    expect(CANONICAL_GIT_SPEC).toBe("github:nawsaafa/tasks-axi#main");
     expect(CANONICAL_GIT_SPEC).toBe(
-      `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`,
+      `github:${CANONICAL_OWNER_REPO}#${CANONICAL_REF}`,
     );
+    expect(CANONICAL_GIT_SPEC).not.toContain(PUBLISHED_UNINSTALLABLE_TAG);
     expect(md).toContain(`github.com/${CANONICAL_OWNER_REPO}`);
     expect(md).toContain("not published to npm");
     expect(md).not.toMatch(UNSCOPED_NPX);
@@ -58,9 +60,12 @@ describe("skill generation", () => {
       ),
     );
 
-    expect(PENDING_RELEASE_TAG).not.toBe(CANONICAL_TAG);
+    expect(PENDING_RELEASE_TAG).not.toBe(CANONICAL_REF);
     expect(PENDING_RELEASE_NOTE).toContain(`\`${PENDING_RELEASE_TAG}\``);
-    expect(PENDING_RELEASE_NOTE).not.toContain(CANONICAL_TAG);
+    expect(PENDING_RELEASE_NOTE).toContain(
+      `\`${PUBLISHED_UNINSTALLABLE_TAG}\``,
+    );
+    expect(PENDING_RELEASE_NOTE).toMatch(/yields no runnable CLI/);
     expect(PENDING_RELEASE_NOTE).toMatch(
       /separately authorized release is published/,
     );
