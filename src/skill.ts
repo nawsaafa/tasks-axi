@@ -12,8 +12,9 @@ export const CANONICAL_OWNER_REPO = "nawsaafa/tasks-axi";
 export const CANONICAL_TAG = "v0.3.0";
 export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`;
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
+export const PENDING_RELEASE_TAG = "v0.3.1";
 export const PENDING_RELEASE_NOTE =
-  "The documented ref changes to `v0.3.1` once its separately authorized release is published.";
+  `The documented ref changes to \`${PENDING_RELEASE_TAG}\` once its separately authorized release is published.`;
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses

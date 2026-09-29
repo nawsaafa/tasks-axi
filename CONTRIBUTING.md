@@ -42,13 +42,13 @@ See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/star
 ## Release and Packaging
 
 Version bookkeeping is release-please's, driven by Conventional Commits on `main`.
-The canonical fork's current release tags (`tasks-axi-v0.3.0`, `tasks-axi-v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please, and tags always carry the `tasks-axi-` component prefix.
+The canonical fork's current release tags (`v0.3.0`, and the reserved `v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please, and tags are bare `v<version>` with no component prefix. Only `v0.3.0` is published today, so that is the ref every documented install pins; `v0.3.1` becomes the documented ref once its release is published.
 The release workflow does GitHub version/release bookkeeping only: it opens the release PR and cuts the tag and GitHub release. This fork is never published to npm, so no release path may install, build for, or invoke a registry publish.
 
 The packed tarball intentionally ships runtime JavaScript only.
 Keep `package.json` `files` limited to `dist/**/*.js`, `skills/tasks-axi`, `LICENSE`, and `README.md`; TypeScript declarations and source maps stay local for development.
 
-`prepare` and `prepack` both run `npm run build`, so `npm pack` rebuilds `dist` first and a canonical Git source/tag install (`npx -y github:nawsaafa/tasks-axi#tasks-axi-v<version>`) builds the CLI on the consumer side. Never run `npm publish` from this fork.
+`prepare` and `prepack` both run `npm run build`, so `npm pack` rebuilds `dist` first and a canonical Git source/tag install (`npx -y github:nawsaafa/tasks-axi#v0.3.0`) builds the CLI on the consumer side. Never run `npm publish` from this fork.
 From a fresh clone, install dependencies with `pnpm install --frozen-lockfile` before a local pack, since that build step needs `node_modules` (this matches how CI installs).
 Then verify the package with `npm pack --dry-run` and keep the CLI bin as `dist/bin/tasks-axi.js` so npm preserves it without warnings.
 

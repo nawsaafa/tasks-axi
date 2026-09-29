@@ -8,6 +8,7 @@ import {
   CANONICAL_TAG,
   createSkillMarkdown,
   PENDING_RELEASE_NOTE,
+  PENDING_RELEASE_TAG,
   SKILL_AUTHOR,
   SKILL_DESCRIPTION,
 } from "../src/skill.js";
@@ -37,8 +38,9 @@ describe("skill generation", () => {
   it("identifies the canonical fork and uses only Git source/tag invocation", () => {
     const md = createSkillMarkdown();
     expect(SKILL_AUTHOR).toBe("nawsaafa");
-    expect(CANONICAL_GIT_SPEC).toMatch(
-      /^github:nawsaafa\/tasks-axi#tasks-axi-v\d+\.\d+\.\d+$/,
+    expect(CANONICAL_GIT_SPEC).toBe("github:nawsaafa/tasks-axi#v0.3.0");
+    expect(CANONICAL_GIT_SPEC).toBe(
+      `github:${CANONICAL_OWNER_REPO}#${CANONICAL_TAG}`,
     );
     expect(md).toContain(`github.com/${CANONICAL_OWNER_REPO}`);
     expect(md).toContain("not published to npm");
@@ -56,10 +58,13 @@ describe("skill generation", () => {
       ),
     );
 
-    expect(PENDING_RELEASE_NOTE).toContain(CANONICAL_TAG);
+    expect(PENDING_RELEASE_TAG).not.toBe(CANONICAL_TAG);
+    expect(PENDING_RELEASE_NOTE).toContain(`\`${PENDING_RELEASE_TAG}\``);
+    expect(PENDING_RELEASE_NOTE).not.toContain(CANONICAL_TAG);
     expect(PENDING_RELEASE_NOTE).toMatch(
-      /separately authorized manual GitHub release/,
+      /separately authorized release is published/,
     );
+    expect(createSkillMarkdown()).toContain(`\`${CANONICAL_INVOKE}\``);
 
     const lastCommand = committed.lastIndexOf(
       `\`${CANONICAL_INVOKE} <command> --help\``,
