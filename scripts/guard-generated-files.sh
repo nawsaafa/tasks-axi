@@ -5,8 +5,17 @@ set -o pipefail
 base_sha="${1:?base sha required}"
 head_sha="${2:?head sha required}"
 
+# The single authorized manual manifest correction on the canonical fork.
+# Hardcoded to this exact version pair; every other hand-edit stays refused.
+exception_base_version="0.2.5"
+exception_head_version="0.3.1"
+
+changes=$(
+  git diff --name-status --find-renames --find-copies --find-copies-harder "${base_sha}...${head_sha}"
+)
+
 violated=$(
-  git diff --name-status --find-renames --find-copies --find-copies-harder "${base_sha}...${head_sha}" |
+  printf '%s\n' "$changes" |
     awk '
       function generated(path) {
         return path == "CHANGELOG.md" || path == ".release-please-manifest.json"
@@ -27,6 +36,84 @@ violated=$(
       }
     '
 )
+
+json_node() {
+  if command -v node >/dev/null 2>&1; then
+    node "$@"
+  else
+    echo "node is required to parse JSON manifests" >&2
+    return 1
+  fi
+}
+
+# Prints the "." version when the file is valid JSON whose root object has
+# exactly that one string key. Any extra/missing/differently-named key,
+# nested non-string ".", or malformed JSON fails.
+manifest_root_version() {
+  git show "${1}:.release-please-manifest.json" | json_node -e '
+let value;
+try {
+  value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+} catch (error) {
+  process.exit(2);
+}
+if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  process.exit(3);
+}
+const keys = Object.keys(value);
+if (keys.length !== 1 || keys[0] !== "." || typeof value["."] !== "string" || value["."] === "") {
+  process.exit(3);
+}
+process.stdout.write(value["."]);
+'
+}
+
+package_version() {
+  git show "${1}:package.json" | json_node -e '
+let value;
+try {
+  value = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+} catch (error) {
+  process.exit(2);
+}
+if (value === null || typeof value !== "object" || Array.isArray(value)) {
+  process.exit(3);
+}
+const version = value.version;
+if (typeof version !== "string" || version === "") {
+  process.exit(3);
+}
+process.stdout.write(version);
+'
+}
+
+is_authorized_manifest_correction() {
+  [ "$violated" = " .release-please-manifest.json" ] || return 1
+
+  printf '%s\n' "$changes" |
+    awk '$1 == "M" && $2 == ".release-please-manifest.json" { found = 1 }
+         END { exit found ? 0 : 1 }' || return 1
+
+  printf '%s\n' "$changes" |
+    awk '$2 == "CHANGELOG.md" || $3 == "CHANGELOG.md" { found = 1 }
+         END { exit found ? 1 : 0 }' || return 1
+
+  base_ref=$(git merge-base "${base_sha}" "${head_sha}" 2>/dev/null || printf '%s' "${base_sha}")
+  base_manifest=$(manifest_root_version "${base_ref}") || return 1
+  head_manifest=$(manifest_root_version "${head_sha}") || return 1
+  base_pkg=$(package_version "${base_ref}") || return 1
+  head_pkg=$(package_version "${head_sha}") || return 1
+
+  [ "$base_manifest" = "$exception_base_version" ] || return 1
+  [ "$head_manifest" = "$exception_head_version" ] || return 1
+  [ "$base_manifest" = "$base_pkg" ] || return 1
+  [ "$head_manifest" = "$head_pkg" ] || return 1
+}
+
+if [ -n "$violated" ] && is_authorized_manifest_correction; then
+  violated=""
+  echo "Allowing the one-time authorized manifest correction ${exception_base_version} -> ${exception_head_version}."
+fi
 
 if [ -n "$violated" ]; then
   {

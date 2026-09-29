@@ -10,12 +10,13 @@ We require this to reduce the maintainer's burden of reviewing and merging contr
 `no-mistakes` puts a local git proxy in front of your real remote.
 Pushing through it runs an AI-driven review/test/lint pipeline in an isolated worktree, forwards the push upstream only after every check passes, and opens a clean PR automatically.
 
-A GitHub Actions check (`Require no-mistakes`) runs on PRs targeting `main` and fails if the body is missing the deterministic signature that no-mistakes writes.
-The release and dependency bots are exempt so their automation keeps working, but regular contributor PRs without the signature will not be reviewed or merged.
+A GitHub Actions check (`Require no-mistakes`) runs on PRs targeting `main` and fails if the body is missing the deterministic signature that no-mistakes writes **or** the structured pipeline attestation bound to the PR's current head.
+The attestation comment (`<!-- no-mistakes-pipeline-attestation:v1 ... -->`) is only emitted by no-mistakes >= 1.46.0, so an older client produces a body that carries the signature alone and the check stays red no matter how often you re-push - upgrade the client, then push again so the body is rewritten for the current head.
+The release and dependency bots are exempt so their automation keeps working, but regular contributor PRs without both markers will not be reviewed or merged.
 
 ## Workflow
 
-1. Fork the repo, then clone the parent repo or set your local `origin` back to the parent repo (`git@github.com:kunchenguid/tasks-axi.git`).
+1. Fork the repo, then clone the canonical fork or set your local `origin` back to it (`git@github.com:nawsaafa/tasks-axi.git`).
 2. Create a branch and make your change with tests (`test/` mirrors `src/`).
 3. Initialize or refresh the gate with your fork as the push target: `no-mistakes init --fork-url git@github.com:<you>/tasks-axi.git`.
 4. Commit your changes using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, ...) - release-please reads them to cut releases.
@@ -26,7 +27,7 @@ The release and dependency bots are exempt so their automation keeps working, bu
    ```
 
 6. Run `no-mistakes` to attach to the pipeline, watch findings, and auto-fix or review as needed.
-7. Once the pipeline passes, it pushes the branch to your fork and opens the PR against this parent repo for you.
+7. Once the pipeline passes, it pushes the branch to your fork and opens the PR against the canonical fork (`nawsaafa/tasks-axi`) for you.
 
 See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/start-here/quick-start/) for the full first-run walkthrough.
 
@@ -40,14 +41,16 @@ See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/star
 
 ## Release and Packaging
 
-Releases are cut by release-please from Conventional Commits on `main`.
-When a release is created, the release workflow installs dependencies, builds, lints, tests, checks generated skill drift, and publishes with `npm publish --access public --provenance`.
+Version bookkeeping is release-please's, driven by Conventional Commits on `main`.
+The canonical fork's current release tags (`v0.3.0`, and the reserved `v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please. Tag shapes are not uniform: release-please is configured with the `tasks-axi` component, so every tag it cut is prefixed (`tasks-axi-v0.1.1` through `tasks-axi-v0.2.5`); `v0.3.0` is bare only because it was hand-cut.
+`v0.3.0` is published but not installable - it resolves to commit `743be9e`, whose `package.json` has no `prepare` script, so a Git-source install builds nothing, packs an empty `dist`, and leaves the declared bin missing. Documented commands therefore point at `github:nawsaafa/tasks-axi#main`, which carries the build step and becomes runnable once the correction lands on the default branch. `v0.3.1` becomes the documented immutable ref once its release is published.
+The release workflow does GitHub version/release bookkeeping only: it opens the release PR and cuts the tag and GitHub release. This fork is never published to npm, so no release path may install, build for, or invoke a registry publish.
 
-The npm package intentionally ships runtime JavaScript only.
+The packed tarball intentionally ships runtime JavaScript only.
 Keep `package.json` `files` limited to `dist/**/*.js`, `skills/tasks-axi`, `LICENSE`, and `README.md`; TypeScript declarations and source maps stay local for development.
 
-`prepack` runs `npm run build`, so `npm pack`, `npm publish`, and `npm publish --dry-run` rebuild `dist` first.
-From a fresh clone, install dependencies with `pnpm install --frozen-lockfile` before any manual pack or publish, since that build step needs `node_modules` (this matches how CI and the release workflow install).
+`prepare` and `prepack` both run `npm run build`, so `npm pack` rebuilds `dist` first and a canonical Git source install (`npx -y github:nawsaafa/tasks-axi#main`) builds the CLI on the consumer side. `prepare` is the load-bearing half: npm runs it when packing a Git dependency, which is why a ref without it (`v0.3.0`) installs nothing runnable. Never run `npm publish` from this fork.
+From a fresh clone, install dependencies with `pnpm install --frozen-lockfile` before a local pack, since that build step needs `node_modules` (this matches how CI installs).
 Then verify the package with `npm pack --dry-run` and keep the CLI bin as `dist/bin/tasks-axi.js` so npm preserves it without warnings.
 
 ## Questions
