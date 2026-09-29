@@ -42,7 +42,7 @@ See the [no-mistakes quick start](https://kunchenguid.github.io/no-mistakes/star
 ## Release and Packaging
 
 Version bookkeeping is release-please's, driven by Conventional Commits on `main`.
-The canonical fork's current release tags (`v0.3.0`, and the reserved `v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please, and tags are bare `v<version>` with no component prefix. Only `v0.3.0` is published today, so that is the ref every documented install pins; `v0.3.1` becomes the documented ref once its release is published.
+The canonical fork's current release tags (`v0.3.0`, and the reserved `v0.3.1`) are cut by a separately authorized manual GitHub release rather than by release-please. Tag shapes are not uniform: release-please is configured with the `tasks-axi` component, so every tag it cut is prefixed (`tasks-axi-v0.1.1` through `tasks-axi-v0.2.5`); `v0.3.0` is bare only because it was hand-cut. Only `v0.3.0` is published today, so that is the ref every documented install pins - it resolves to commit `743be9e`, installs and runs (`--version` prints `0.2.5`), and bundles the pre-correction skill file. `v0.3.1` becomes the documented ref once its release is published, and carries the corrected provenance to Git-source installs.
 The release workflow does GitHub version/release bookkeeping only: it opens the release PR and cuts the tag and GitHub release. This fork is never published to npm, so no release path may install, build for, or invoke a registry publish.
 
 The packed tarball intentionally ships runtime JavaScript only.

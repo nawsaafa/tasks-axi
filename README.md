@@ -24,7 +24,7 @@ Pass `--archive-body` with a body replacement when the superseded body should be
 
 This canonical fork lives at [nawsaafa/tasks-axi](https://github.com/nawsaafa/tasks-axi) and follows a **no-npm publication** strategy. Install and invoke it from the Git source and tag below. Unscoped registry installs of the `tasks-axi` package name resolve the upstream npm package and must not be used.
 
-Each `github:`-qualified command below pins one exact immutable tag; the `npx skills add` command is not tag-pinned and resolves the default branch. The currently published `v0.3.0` ref is used below; `v0.3.1` becomes the documented ref once its separately authorized release is published.
+Each `github:`-qualified command below pins one exact immutable tag; the `npx skills add` command is not tag-pinned and resolves the default branch. The currently published `v0.3.0` ref is used below; `v0.3.1` becomes the documented ref once its separately authorized release is published. `v0.3.0` was cut manually as a bare tag on commit `743be9e`, so the CLI it installs reports version `0.2.5` and ships the pre-correction skill file; this repo's provenance correction reaches Git-source installs when `v0.3.1` is published.
 
 Install the tasks-axi skill in the [Agent Skills](https://agentskills.io) format with [`npx skills`](https://github.com/vercel-labs/skills):
 
