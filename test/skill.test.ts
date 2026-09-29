@@ -7,8 +7,7 @@ import {
   CANONICAL_OWNER_REPO,
   CANONICAL_REF,
   createSkillMarkdown,
-  PENDING_RELEASE_NOTE,
-  PENDING_RELEASE_TAG,
+  PUBLISHED_RELEASE_NOTE,
   PUBLISHED_UNINSTALLABLE_TAG,
   SKILL_AUTHOR,
   SKILL_DESCRIPTION,
@@ -39,7 +38,7 @@ describe("skill generation", () => {
   it("identifies the canonical fork and uses only Git source invocation", () => {
     const md = createSkillMarkdown();
     expect(SKILL_AUTHOR).toBe("nawsaafa");
-    expect(CANONICAL_GIT_SPEC).toBe("github:nawsaafa/tasks-axi#main");
+    expect(CANONICAL_GIT_SPEC).toBe("github:nawsaafa/tasks-axi#v0.3.1");
     expect(CANONICAL_GIT_SPEC).toBe(
       `github:${CANONICAL_OWNER_REPO}#${CANONICAL_REF}`,
     );
@@ -52,7 +51,7 @@ describe("skill generation", () => {
     expect(md).not.toContain("kunchenguid");
   });
 
-  it("carries the pending-release caveat alongside its pinned commands", () => {
+  it("carries the published-release caveat alongside its pinned commands", () => {
     const committed = normalizeLineEndings(
       readFileSync(
         new URL("../skills/tasks-axi/SKILL.md", import.meta.url),
@@ -60,21 +59,17 @@ describe("skill generation", () => {
       ),
     );
 
-    expect(PENDING_RELEASE_TAG).not.toBe(CANONICAL_REF);
-    expect(PENDING_RELEASE_NOTE).toContain(`\`${PENDING_RELEASE_TAG}\``);
-    expect(PENDING_RELEASE_NOTE).toContain(
+    expect(PUBLISHED_RELEASE_NOTE).toContain(
       `\`${PUBLISHED_UNINSTALLABLE_TAG}\``,
     );
-    expect(PENDING_RELEASE_NOTE).toMatch(/yields no runnable CLI/);
-    expect(PENDING_RELEASE_NOTE).toMatch(
-      /separately authorized release is published/,
-    );
+    expect(PUBLISHED_RELEASE_NOTE).toMatch(/published immutable tag/);
+    expect(PUBLISHED_RELEASE_NOTE).toMatch(/yields no runnable CLI/);
     expect(createSkillMarkdown()).toContain(`\`${CANONICAL_INVOKE}\``);
 
     const lastCommand = committed.lastIndexOf(
       `\`${CANONICAL_INVOKE} <command> --help\``,
     );
-    const caveat = committed.indexOf(PENDING_RELEASE_NOTE);
+    const caveat = committed.indexOf(PUBLISHED_RELEASE_NOTE);
 
     expect(lastCommand).toBeGreaterThan(-1);
     expect(caveat).toBeGreaterThan(lastCommand);

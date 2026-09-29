@@ -14,7 +14,7 @@ import { parse } from "yaml";
 import { CANONICAL_GIT_SPEC, CANONICAL_REF } from "../src/skill.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const DOCUMENTED_CANONICAL_REF = "main";
+const DOCUMENTED_CANONICAL_REF = "v0.3.1";
 const UNINSTALLABLE_PUBLISHED_TAG = "v0.3.0";
 const REF_GUARDED_DOCS = ["README.md", "CONTRIBUTING.md"];
 const workflowsDir = join(root, ".github", "workflows");
@@ -227,9 +227,7 @@ describe("canonical fork provenance", () => {
     expect(CANONICAL_GIT_SPEC).not.toContain(
       `github:nawsaafa/tasks-axi#tasks-axi-v${pkg.version}`,
     );
-    expect(CANONICAL_GIT_SPEC).not.toContain(
-      `#${UNINSTALLABLE_PUBLISHED_TAG}`,
-    );
+    expect(CANONICAL_GIT_SPEC).not.toContain(`#${UNINSTALLABLE_PUBLISHED_TAG}`);
 
     for (const doc of REF_GUARDED_DOCS) {
       const text = readFileSync(join(root, doc), "utf8");
@@ -308,6 +306,24 @@ describe("canonical fork provenance", () => {
     ) as Record<string, string>;
 
     expect(manifest["."]).toBe(pkg.version);
+  });
+
+  it("anchors future bare release-please tags after the manual v0.3.1 release", () => {
+    const config = JSON.parse(
+      readFileSync(join(root, "release-please-config.json"), "utf8"),
+    ) as {
+      "last-release-sha"?: string;
+      packages?: Record<
+        string,
+        { "include-component-in-tag"?: boolean; "package-name"?: string }
+      >;
+    };
+
+    expect(config["last-release-sha"]).toBe(
+      "e96fcdf6cd78dff1517d4c5f1fa8354f5ce01bfa",
+    );
+    expect(config.packages?.["."]?.["include-component-in-tag"]).toBe(false);
+    expect(config.packages?.["."]?.["package-name"]).toBe("tasks-axi");
   });
 
   it("documents Git source/tag install paths and no-npm publication", () => {

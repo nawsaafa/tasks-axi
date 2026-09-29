@@ -2,10 +2,12 @@
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
+  "last-release-sha": "e96fcdf6cd78dff1517d4c5f1fa8354f5ce01bfa",
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "tasks-axi"
+      "package-name": "tasks-axi",
+      "include-component-in-tag": false
     }
   }
 }

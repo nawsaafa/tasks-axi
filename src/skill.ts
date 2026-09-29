@@ -10,12 +10,11 @@ export const SKILL_DESCRIPTION =
   "on completion, finding dispatchable or held work, or trimming the Done list.";
 
 export const CANONICAL_OWNER_REPO = "nawsaafa/tasks-axi";
-export const CANONICAL_REF = "main";
+export const CANONICAL_REF = "v0.3.1";
 export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_REF}`;
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
 export const PUBLISHED_UNINSTALLABLE_TAG = "v0.3.0";
-export const PENDING_RELEASE_TAG = "v0.3.1";
-export const PENDING_RELEASE_NOTE = `\`${CANONICAL_REF}\` is a moving branch ref, not an immutable pin. The published \`${PUBLISHED_UNINSTALLABLE_TAG}\` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it. Pin \`${PENDING_RELEASE_TAG}\` instead once its separately authorized release is published.`;
+export const PUBLISHED_RELEASE_NOTE = `\`${CANONICAL_REF}\` is a published immutable tag. The earlier published \`${PUBLISHED_UNINSTALLABLE_TAG}\` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it.`;
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses
@@ -65,7 +64,7 @@ Get every command, flag, and workflow from the live CLI - it is the single sourc
 - \`${CANONICAL_INVOKE} --help\` - global usage
 - \`${CANONICAL_INVOKE} <command> --help\` - per-command usage
 
-${PENDING_RELEASE_NOTE}
+${PUBLISHED_RELEASE_NOTE}
 
 If the CLI prints a follow-up starting with \`tasks-axi\`, rerun it with the same Git source ref prefix instead of an unscoped registry package name.
 `;

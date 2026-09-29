@@ -22,10 +22,10 @@ Use tasks-axi whenever a task touches the backlog: filing or dispatching work, m
 
 Get every command, flag, and workflow from the live CLI - it is the single source of truth:
 
-- `npx -y github:nawsaafa/tasks-axi#main` - dashboard of the current backlog
-- `npx -y github:nawsaafa/tasks-axi#main --help` - global usage
-- `npx -y github:nawsaafa/tasks-axi#main <command> --help` - per-command usage
+- `npx -y github:nawsaafa/tasks-axi#v0.3.1` - dashboard of the current backlog
+- `npx -y github:nawsaafa/tasks-axi#v0.3.1 --help` - global usage
+- `npx -y github:nawsaafa/tasks-axi#v0.3.1 <command> --help` - per-command usage
 
-`main` is a moving branch ref, not an immutable pin. The published `v0.3.0` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it. Pin `v0.3.1` instead once its separately authorized release is published.
+`v0.3.1` is a published immutable tag. The earlier published `v0.3.0` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it.
 
 If the CLI prints a follow-up starting with `tasks-axi`, rerun it with the same Git source ref prefix instead of an unscoped registry package name.
