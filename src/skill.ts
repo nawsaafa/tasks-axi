@@ -1,4 +1,5 @@
 import { DESCRIPTION } from "./cli.js";
+
 // Trigger string agents match against to auto-load the skill. Terse and
 // outcome-focused so it fires on "manage the backlog / track tasks" intents.
 export const SKILL_DESCRIPTION =
@@ -14,8 +15,7 @@ export const CANONICAL_GIT_SPEC = `github:${CANONICAL_OWNER_REPO}#${CANONICAL_RE
 export const CANONICAL_INVOKE = `npx -y ${CANONICAL_GIT_SPEC}`;
 export const PUBLISHED_UNINSTALLABLE_TAG = "v0.3.0";
 export const PENDING_RELEASE_TAG = "v0.3.1";
-export const PENDING_RELEASE_NOTE =
-  `\`${CANONICAL_REF}\` is a moving branch ref, not an immutable pin. The published \`${PUBLISHED_UNINSTALLABLE_TAG}\` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it. Pin \`${PENDING_RELEASE_TAG}\` instead once its separately authorized release is published.`;
+export const PENDING_RELEASE_NOTE = `\`${CANONICAL_REF}\` is a moving branch ref, not an immutable pin. The published \`${PUBLISHED_UNINSTALLABLE_TAG}\` tag carries no build step, so a Git-source install from it yields no runnable CLI - do not pin it. Pin \`${PENDING_RELEASE_TAG}\` instead once its separately authorized release is published.`;
 export const SKILL_AUTHOR = "nawsaafa";
 
 // Extended frontmatter read by Nous Research's Hermes Agent harness; harnesses
