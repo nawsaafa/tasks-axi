@@ -16,6 +16,7 @@ import { CANONICAL_GIT_SPEC, CANONICAL_REF } from "../src/skill.js";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const DOCUMENTED_CANONICAL_REF = "main";
 const UNINSTALLABLE_PUBLISHED_TAG = "v0.3.0";
+const REF_GUARDED_DOCS = ["README.md", "CONTRIBUTING.md"];
 const workflowsDir = join(root, ".github", "workflows");
 
 const PUBLISH_RUN = /\b(?:npm|pnpm|yarn(?:\s+npm)?)\s+publish\b/;
@@ -230,12 +231,15 @@ describe("canonical fork provenance", () => {
       `#${UNINSTALLABLE_PUBLISHED_TAG}`,
     );
 
-    const readme = readFileSync(join(root, "README.md"), "utf8");
-    const refs = readme.match(/github:nawsaafa\/tasks-axi#\S+/g) ?? [];
-    expect(refs.length).toBeGreaterThan(0);
-    expect([
-      ...new Set(refs.map((ref) => ref.replace(/[`).,]+$/, ""))),
-    ]).toEqual([CANONICAL_GIT_SPEC]);
+    for (const doc of REF_GUARDED_DOCS) {
+      const text = readFileSync(join(root, doc), "utf8");
+      const refs = text.match(/github:nawsaafa\/tasks-axi#\S+/g) ?? [];
+      expect(refs.length, doc).toBeGreaterThan(0);
+      expect(
+        [...new Set(refs.map((ref) => ref.replace(/[`).,]+$/, "")))],
+        doc,
+      ).toEqual([CANONICAL_GIT_SPEC]);
+    }
   });
 
   it("builds the CLI on a Git-source install because dist is untracked", () => {
